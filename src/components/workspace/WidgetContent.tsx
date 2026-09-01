@@ -836,86 +836,74 @@ function StatsContent({ widget }: { widget: Widget }) {
     );
     return { code, cells, total: rowEntries.length };
   });
-  const colTotals = CALL_HASHTAGS.map(
-    (tag) => dayEntries.filter((c) => c.hashtags.includes(tag)).length,
-  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2" onClick={stop}>
+    <div className="flex h-full min-h-0 flex-col gap-3" onClick={stop}>
       <div className="flex items-center justify-between gap-2">
-        <input
-          type="date"
+        <DateField
           value={day}
-          onChange={(e) => setDay(e.target.value)}
-          onPointerDown={stop}
+          onChange={setDay}
+          size="sm"
           aria-label="Statistics day"
-          className="min-w-0 rounded-md border border-border bg-surface px-1.5 py-1 text-[11px] text-foreground outline-none"
+          className="w-auto"
         />
-        <span className="label-xs shrink-0">
-          {dayEntries.length} call{dayEntries.length === 1 ? "" : "s"} · {callHistory.length} total
+        <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+          Total calls: <span className="font-mono text-foreground">{dayEntries.length}</span>
         </span>
       </div>
+
       {callHistory.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">
           Calls finished from the Notes tool will appear here.
         </p>
       ) : (
-        <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[320px] border-collapse text-[11px]">
-            <thead>
-              <tr>
-                <th className="pb-1 pr-2 text-left font-medium text-muted-foreground">Property</th>
-                {CALL_HASHTAGS.map((tag) => (
-                  <th
-                    key={tag}
-                    className="whitespace-nowrap pb-1 px-1.5 text-right font-medium text-muted-foreground"
-                  >
-                    {tag}
-                  </th>
-                ))}
-                <th className="pb-1 pl-1.5 text-right font-medium text-muted-foreground">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {rows.map((row) => {
-                const style = PROPERTY_STYLES[row.code];
-                return (
-                  <tr key={row.code}>
-                    <td className="py-1 pr-2">
-                      <span
-                        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                        style={{ backgroundColor: style.hex, color: style.fg }}
-                      >
-                        {row.code}
-                      </span>
-                    </td>
-                    {row.cells.map((n, i) => (
-                      <td key={i} className="py-1 px-1.5 text-right font-mono">
-                        {n}
-                      </td>
-                    ))}
-                    <td className="py-1 pl-1.5 text-right font-mono font-semibold">{row.total}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-border/60">
-                <td className="pt-1 pr-2 text-[10.5px] text-muted-foreground">Total</td>
-                {colTotals.map((n, i) => (
-                  <td
-                    key={i}
-                    className="pt-1 px-1.5 text-right font-mono text-[10.5px] text-muted-foreground"
-                  >
-                    {n}
-                  </td>
-                ))}
-                <td className="pt-1 pl-1.5 text-right font-mono text-[10.5px] font-semibold">
-                  {dayEntries.length}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+          {rows.map((row) => {
+            const style = PROPERTY_STYLES[row.code];
+            return (
+              <div
+                key={row.code}
+                className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-2/50 p-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{ backgroundColor: style.hex, color: style.fg }}
+                    >
+                      {row.code}
+                    </span>
+                    <span className="truncate text-[10.5px] text-muted-foreground">
+                      {style.label}
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] font-semibold text-foreground">
+                    {row.total}
+                  </span>
+                </div>
+                {row.total > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {CALL_HASHTAGS.map((tag, i) => {
+                      const n = row.cells[i];
+                      if (!n) return null;
+                      return (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                          style={{ backgroundColor: `${style.hex}26`, color: style.hex }}
+                        >
+                          {tag.slice(1)}
+                          <span className="font-mono font-semibold">{n}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[10.5px] text-muted-foreground/70">No calls yet</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

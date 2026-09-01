@@ -81,15 +81,13 @@ export function DateField({
           mode="single"
           selected={parseISODate(value)}
           defaultMonth={parseISODate(value) ?? new Date()}
-
-
           onSelect={(d) => {
             if (!d) return;
             onChange(toISO(d));
             setOpen(false);
           }}
           autoFocus
-          className="pointer-events-auto p-3 [--cell-size:2rem]"
+          className="pointer-events-auto p-3 [--cell-size:2rem] [--primary:#1E293B] [--primary-foreground:#ffffff]"
         />
       </PopoverContent>
     </Popover>

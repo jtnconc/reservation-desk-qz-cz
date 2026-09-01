@@ -1,5 +1,3 @@
-import { findActivePropertyCode } from "@/lib/property-codes";
-
 /** Tiny bridge so the header toolbar can format the notes editor. */
 let editor: HTMLElement | null = null;
 
@@ -55,52 +53,6 @@ export function applyNotesFontSize(px: number) {
       span.innerHTML = marker.innerHTML;
       marker.replaceWith(span);
     });
-  });
-}
-
-/**
- * Inserts `hashtag` into the note right after the currently active property
- * code (AR / ER / RI), regardless of where the caret currently is. No-op if
- * no property code is active.
- */
-export function insertHashtagAfterActiveProperty(hashtag: string) {
-  withEditor((el) => {
-    const text = el.textContent ?? "";
-    const match = findActivePropertyCode(text);
-    if (!match) return;
-
-    // Locate the DOM text node + offset for the global `end` offset by
-    // walking text nodes in document order (same approach used to paint
-    // entity/property highlights).
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    let node = walker.nextNode() as Text | null;
-    let acc = 0;
-    let targetNode: Text | null = null;
-    let targetOffset = 0;
-    while (node) {
-      const len = node.data.length;
-      if (match.end <= acc + len) {
-        targetNode = node;
-        targetOffset = match.end - acc;
-        break;
-      }
-      acc += len;
-      node = walker.nextNode() as Text | null;
-    }
-
-    const sel = window.getSelection();
-    if (!sel) return;
-    const range = document.createRange();
-    if (targetNode) {
-      range.setStart(targetNode, targetOffset);
-      range.setEnd(targetNode, targetOffset);
-    } else {
-      range.selectNodeContents(el);
-      range.collapse(false);
-    }
-    sel.removeAllRanges();
-    sel.addRange(range);
-    document.execCommand("insertText", false, ` ${hashtag}`);
   });
 }
 

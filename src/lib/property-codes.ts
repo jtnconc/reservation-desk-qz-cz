@@ -21,8 +21,8 @@ export const PROPERTY_STYLES: Record<PropertyCode, PropertyStyle> = {
   AR: {
     code: "AR",
     label: "AC Hotel",
-    hex: "#C2C0C0",
-    fg: "#1c1c1e",
+    hex: "#71717A",
+    fg: "#ffffff",
     highlightKey: "property-ar",
   },
   ER: {
@@ -42,7 +42,7 @@ export const PROPERTY_STYLES: Record<PropertyCode, PropertyStyle> = {
 };
 
 /** Fixed action tags shown once a property code is active in the note. */
-export const CALL_HASHTAGS = ["#Reserva", "#Solicitud", "#Consulta", "#Cancelación"];
+export const CALL_HASHTAGS = ["#Reserva", "#Solicitud", "#Consulta", "#Cancelación", "#Cotización"];
 
 export interface ActivePropertyMatch {
   code: PropertyCode;

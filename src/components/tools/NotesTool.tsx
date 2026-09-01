@@ -15,7 +15,7 @@ import {
 } from "@/lib/property-codes";
 import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize-html";
-import { insertHashtagAfterActiveProperty, registerNotesEditor } from "./notes-format";
+import { registerNotesEditor } from "./notes-format";
 import { CallHistoryPanel } from "./CallHistoryPanel";
 
 const HIGHLIGHT_PREFIX = "entity-";
@@ -34,6 +34,16 @@ export function NotesTool() {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [plain, setPlain] = useState("");
+  // Toggled action hashtags for the active call — kept purely as UI state,
+  // never injected into the note text itself.
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  const toggleTag = (tag: string) =>
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
 
   // Keep the DOM in sync only when the incoming value differs (restore/version).
   useEffect(() => {
@@ -53,6 +63,12 @@ export function NotesTool() {
   const activePropertyStyle = activeProperty
     ? PROPERTY_STYLES[activeProperty.code]
     : null;
+
+  // Clear toggled hashtags whenever the active property code changes (or
+  // disappears), so tags never carry over between unrelated calls.
+  useEffect(() => {
+    setActiveTags(new Set());
+  }, [activeProperty?.code]);
 
   /** Paint entity + property-code highlights with the CSS Custom Highlight API (no overlay → caret stays exact). */
   const paintHighlights = useCallback(() => {
@@ -213,20 +229,31 @@ export function NotesTool() {
               >
                 {activePropertyStyle.code} · {activePropertyStyle.label}
               </span>
-              {CALL_HASHTAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => insertHashtagAfterActiveProperty(tag)}
-                  className="rounded-full px-2 py-0.5 text-[10.5px] font-medium transition-opacity hover:opacity-80"
-                  style={{
-                    backgroundColor: `${activePropertyStyle.hex}33`,
-                    color: activePropertyStyle.hex,
-                  }}
-                >
-                  {tag}
-                </button>
-              ))}
+              {CALL_HASHTAGS.map((tag) => {
+                const isActive = activeTags.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => toggleTag(tag)}
+                    className="rounded-full px-2 py-0.5 text-[10.5px] font-medium transition-colors hover:opacity-80"
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: activePropertyStyle.hex,
+                            color: activePropertyStyle.fg,
+                          }
+                        : {
+                            backgroundColor: `${activePropertyStyle.hex}33`,
+                            color: activePropertyStyle.hex,
+                          }
+                    }
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
             </>
           ) : (
             Object.entries(entityCounts).map(([type, count]) => (
@@ -244,6 +271,32 @@ export function NotesTool() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {activePropertyStyle && activeProperty && (
+            <button
+              onClick={() => {
+                const el = editorRef.current;
+                if (!el?.textContent?.trim() && !el?.querySelector("img")) return;
+                finishCall({
+                  html: el.innerHTML,
+                  text: plain,
+                  property: activeProperty.code,
+                  hashtags: Array.from(activeTags),
+                });
+                el.innerHTML = "";
+                setPlain("");
+                setActiveTags(new Set());
+                toast.success("Call ended", {
+                  description: `${activePropertyStyle.code} · ${activePropertyStyle.label}`,
+                });
+              }}
+              aria-label="End call"
+              title="End call"
+              className="flex size-8 items-center justify-center rounded-full text-primary-foreground transition-opacity hover:opacity-90"
+              style={{ backgroundColor: activePropertyStyle.hex, color: activePropertyStyle.fg }}
+            >
+              <PhoneOff className="size-[15px]" />
+            </button>
+          )}
           <button
             onClick={() => {
               const el = editorRef.current;
@@ -270,32 +323,6 @@ export function NotesTool() {
           >
             <History className="size-[15px]" />
           </button>
-          {activePropertyStyle && activeProperty && (
-            <button
-              onClick={() => {
-                const el = editorRef.current;
-                if (!el?.textContent?.trim() && !el?.querySelector("img")) return;
-                const hashtags = CALL_HASHTAGS.filter((tag) => plain.includes(tag));
-                finishCall({
-                  html: el.innerHTML,
-                  text: plain,
-                  property: activeProperty.code,
-                  hashtags,
-                });
-                el.innerHTML = "";
-                setPlain("");
-                toast.success("Call ended", {
-                  description: `${activePropertyStyle.code} · ${activePropertyStyle.label}`,
-                });
-              }}
-              aria-label="End call"
-              title="End call"
-              className="flex size-8 items-center justify-center rounded-full text-primary-foreground shadow-desk transition-opacity hover:opacity-90"
-              style={{ backgroundColor: activePropertyStyle.hex, color: activePropertyStyle.fg }}
-            >
-              <PhoneOff className="size-[15px]" />
-            </button>
-          )}
         </div>
       </footer>
     </div>

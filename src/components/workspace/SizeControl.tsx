@@ -88,6 +88,7 @@ export function SizeControl({
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleLock();
+                  setOpen(false);
                 }}
                 className={cn(
                   "flex size-[18px] items-center justify-center rounded-[5px] transition-colors hover:bg-secondary",
@@ -112,11 +113,7 @@ export function SizeControl({
             locked ? "text-foreground/70" : "text-muted-foreground/50",
           )}
         >
-          {locked ? (
-            <Lock className="size-[9px]" />
-          ) : (
-            <span className="size-[5px] rounded-full bg-current" />
-          )}
+          <span className="size-[5px] rounded-full bg-current" />
         </button>
       )}
     </div>

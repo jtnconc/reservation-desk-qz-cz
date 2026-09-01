@@ -7,7 +7,6 @@ import { todayISO } from "@/lib/quote-model";
 import { isTaskDueToday } from "@/lib/task-schedule";
 import { WidgetContent } from "./WidgetContent";
 import { SizeControl } from "./SizeControl";
-import { LockControl } from "./LockControl";
 import { accentVar, tintVar } from "./AccentControl";
 import { WidgetCustomizer } from "./WidgetCustomizer";
 import { widgetIcon } from "./widget-icons";
@@ -149,10 +148,7 @@ export function WidgetGrid() {
   };
 
   return (
-    <div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-      style={{ gridAutoRows: `minmax(140px, ${ROW_MAX_HEIGHT}px)` }}
-    >
+    <div className="grid auto-rows-[minmax(140px,auto)] grid-cols-2 gap-3 sm:grid-cols-4">
       {ordered.map((w) => {
         const Icon = widgetIcon(w.type, w.icon);
         const active = activeWidget === w.id;
@@ -199,12 +195,13 @@ export function WidgetGrid() {
               ...(active
                 ? { borderColor: `color-mix(in oklch, ${accent} 35%, transparent)` }
                 : {}),
+              minHeight: w.height === 2 ? "292px" : "140px",
               ...(isLocked
                 ? { maxHeight: lockedHeight ? `${lockedHeight}px` : `${ROW_MAX_HEIGHT}px` }
                 : { maxHeight: `${ROW_MAX_HEIGHT * w.height}px` }),
             }}
             className={cn(
-              "desk-panel relative flex h-full cursor-grab flex-col overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
+              "desk-panel relative flex cursor-grab flex-col self-start overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
               spanClass(w),
               active ? "shadow-lift" : "hover:shadow-lift",
               isDragging && "scale-[0.98] opacity-40",
@@ -299,8 +296,9 @@ export function WidgetGrid() {
                 <SizeControl
                   value={`${w.width}x${w.height}` as WidgetSize}
                   onChange={(s) => setWidgetSize(w.id, s)}
+                  locked={isLocked}
+                  onToggleLock={() => handleToggleLock(w.id)}
                 />
-                <LockControl locked={isLocked} onToggle={() => handleToggleLock(w.id)} />
               </div>
             </header>
             {isCustomizing && (

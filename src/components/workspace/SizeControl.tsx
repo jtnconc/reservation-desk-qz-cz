@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Lock, Unlock } from "lucide-react";
 import type { WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +26,15 @@ function SizeGlyph({ size, active }: { size: WidgetSize; active: boolean }) {
 export function SizeControl({
   value,
   onChange,
+  locked = false,
+  onToggleLock,
 }: {
   value: WidgetSize;
   onChange: (size: WidgetSize) => void;
+  /** whether the card's height is currently pinned */
+  locked?: boolean;
+  /** shown as an extra option inside the expanded popover, after the size glyphs */
+  onToggleLock?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -70,6 +77,27 @@ export function SizeControl({
               <SizeGlyph size={s} active={s === value} />
             </button>
           ))}
+          {onToggleLock ? (
+            <>
+              <span className="h-3 w-px bg-border" aria-hidden="true" />
+              <button
+                type="button"
+                aria-label={locked ? "Unlock card height" : "Lock card height"}
+                aria-pressed={locked}
+                title={locked ? "Unlock card height" : "Lock card height"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleLock();
+                }}
+                className={cn(
+                  "flex size-[18px] items-center justify-center rounded-[5px] transition-colors hover:bg-secondary",
+                  locked ? "text-foreground" : "text-muted-foreground/60",
+                )}
+              >
+                {locked ? <Lock className="size-[11px]" /> : <Unlock className="size-[11px]" />}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : (
         <button
@@ -79,9 +107,16 @@ export function SizeControl({
             e.stopPropagation();
             setOpen(true);
           }}
-          className="flex size-4 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:text-foreground"
+          className={cn(
+            "flex size-4 items-center justify-center rounded-full transition-colors hover:text-foreground",
+            locked ? "text-foreground/70" : "text-muted-foreground/50",
+          )}
         >
-          <span className="size-[5px] rounded-full bg-current" />
+          {locked ? (
+            <Lock className="size-[9px]" />
+          ) : (
+            <span className="size-[5px] rounded-full bg-current" />
+          )}
         </button>
       )}
     </div>

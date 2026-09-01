@@ -36,10 +36,16 @@ const parts = (iso: string) => {
   return { y: y ?? 2026, m: (m ?? 1) - 1, d: d ?? 1 };
 };
 
-export function todayISO() {
-  const now = new Date();
+/** Local calendar date (YYYY-MM-DD) for a given Date, using the machine's
+ * timezone — never UTC. Use this to derive day keys from a stored timestamp
+ * so they line up with `todayISO()`. */
+export function localISODate(date: Date) {
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
+
+export function todayISO() {
+  return localISODate(new Date());
 }
 
 export function formatDate(iso: string, lang: QuoteLanguage = "es") {

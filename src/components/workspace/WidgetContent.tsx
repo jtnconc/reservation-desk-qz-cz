@@ -9,7 +9,7 @@ import { sanitizeHtml } from "@/lib/sanitize-html";
 import { highlightHtml, highlightText, matchesQuery } from "@/lib/highlight";
 import { RECURRENCE_LABELS, WEEKDAY_LABELS, isTaskDueToday } from "@/lib/task-schedule";
 import { CALL_HASHTAGS, PROPERTY_STYLES } from "@/lib/property-codes";
-import { todayISO } from "@/lib/quote-model";
+import { todayISO, localISODate } from "@/lib/quote-model";
 import {
   Select,
   SelectContent,
@@ -824,8 +824,11 @@ function StatsContent({ widget }: { widget: Widget }) {
   const [day, setDay] = useState(todayISO());
   if (widget.content.kind !== "stats") return null;
 
+  // Compare on the LOCAL calendar date of each call, not the raw UTC prefix of
+  // `savedAtISO`. `day` comes from `todayISO()` (local), so slicing the UTC
+  // string would drop evening calls in behind-UTC timezones (e.g. Panama).
   const dayEntries = useMemo(
-    () => callHistory.filter((c) => c.savedAtISO.slice(0, 10) === day),
+    () => callHistory.filter((c) => localISODate(new Date(c.savedAtISO)) === day),
     [callHistory, day],
   );
 
@@ -866,17 +869,12 @@ function StatsContent({ widget }: { widget: Widget }) {
                 className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-2/50 p-2.5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                      style={{ backgroundColor: style.hex, color: style.fg }}
-                    >
-                      {row.code}
-                    </span>
-                    <span className="truncate text-[10.5px] text-muted-foreground">
-                      {style.label}
-                    </span>
-                  </div>
+                  <span
+                    className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                    style={{ backgroundColor: style.hex, color: style.fg }}
+                  >
+                    {style.label}
+                  </span>
                   <span className="shrink-0 font-mono text-[11px] font-semibold text-foreground">
                     {row.total}
                   </span>

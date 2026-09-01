@@ -218,17 +218,34 @@ export function NotesTool() {
 
       <footer className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {activePropertyStyle && activeProperty && (
+            <button
+              onClick={() => {
+                const el = editorRef.current;
+                if (!el?.textContent?.trim() && !el?.querySelector("img")) return;
+                finishCall({
+                  html: el.innerHTML,
+                  text: plain,
+                  property: activeProperty.code,
+                  hashtags: Array.from(activeTags),
+                });
+                el.innerHTML = "";
+                setPlain("");
+                setActiveTags(new Set());
+                toast.success("Call ended", {
+                  description: activePropertyStyle.label,
+                });
+              }}
+              aria-label="End call"
+              title="End call"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-primary-foreground transition-opacity hover:opacity-90"
+              style={{ backgroundColor: activePropertyStyle.hex, color: activePropertyStyle.fg }}
+            >
+              <PhoneOff className="size-[15px]" />
+            </button>
+          )}
           {activePropertyStyle ? (
             <>
-              <span
-                className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
-                style={{
-                  backgroundColor: activePropertyStyle.hex,
-                  color: activePropertyStyle.fg,
-                }}
-              >
-                {activePropertyStyle.code} · {activePropertyStyle.label}
-              </span>
               {CALL_HASHTAGS.map((tag) => {
                 const isActive = activeTags.has(tag);
                 return (
@@ -271,32 +288,6 @@ export function NotesTool() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {activePropertyStyle && activeProperty && (
-            <button
-              onClick={() => {
-                const el = editorRef.current;
-                if (!el?.textContent?.trim() && !el?.querySelector("img")) return;
-                finishCall({
-                  html: el.innerHTML,
-                  text: plain,
-                  property: activeProperty.code,
-                  hashtags: Array.from(activeTags),
-                });
-                el.innerHTML = "";
-                setPlain("");
-                setActiveTags(new Set());
-                toast.success("Call ended", {
-                  description: `${activePropertyStyle.code} · ${activePropertyStyle.label}`,
-                });
-              }}
-              aria-label="End call"
-              title="End call"
-              className="flex size-8 items-center justify-center rounded-full text-primary-foreground transition-opacity hover:opacity-90"
-              style={{ backgroundColor: activePropertyStyle.hex, color: activePropertyStyle.fg }}
-            >
-              <PhoneOff className="size-[15px]" />
-            </button>
-          )}
           <button
             onClick={() => {
               const el = editorRef.current;

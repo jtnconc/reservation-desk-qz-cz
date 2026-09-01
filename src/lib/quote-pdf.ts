@@ -107,8 +107,9 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
   if (headerAddress) {
     doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(115, 120, 132);
     const addressLines = doc.splitTextToSize(headerAddress, rightBlockWidth);
-    const alignedAddressY = logoBottom - (addressLines.length - 1) * lineHeight;
-    const addressY = Math.max(dateY + 14, alignedAddressY);
+    // Keep the address tight to the date: place it just below the date baseline
+    // instead of stretching it down to align with the logo bottom.
+    const addressY = dateY + 11;
     doc.text(addressLines, W - M, addressY, { align: "right" });
     rightBlockBottom = addressY + (addressLines.length - 1) * lineHeight;
   }

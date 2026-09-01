@@ -122,6 +122,8 @@ export interface Widget {
   icon?: WidgetIconName;
   /** ultra-light pastel background tint (sticky notes only) */
   tint?: WidgetAccent;
+  /** when true, the card's height is pinned to its grid size and overflow scrolls internally */
+  heightLocked?: boolean;
   content: WidgetContent;
 }
 

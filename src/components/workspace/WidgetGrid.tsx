@@ -7,9 +7,14 @@ import { todayISO } from "@/lib/quote-model";
 import { isTaskDueToday } from "@/lib/task-schedule";
 import { WidgetContent } from "./WidgetContent";
 import { SizeControl } from "./SizeControl";
+import { LockControl } from "./LockControl";
 import { accentVar, tintVar } from "./AccentControl";
 import { WidgetCustomizer } from "./WidgetCustomizer";
 import { widgetIcon } from "./widget-icons";
+
+/** Max height (px) a single grid row is allowed to grow to before content
+ * must scroll internally instead of stretching the whole row/dashboard. */
+const ROW_MAX_HEIGHT = 320;
 
 /** True when a widget has something actionable due "now" that should surface
  * a small colored dot on its minimized pill, even while collapsed. */
@@ -50,6 +55,7 @@ export function WidgetGrid() {
     renameWidget,
     returnStickyToNotes,
     reorderWidgets,
+    toggleWidgetHeightLock,
     pulses,
     clearPulse,
   } = useWorkspace();
@@ -61,7 +67,18 @@ export function WidgetGrid() {
   const [settling, setSettling] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [lockedHeights, setLockedHeights] = useState<Record<string, number>>({});
   const dragged = useRef<string | null>(null);
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  const handleToggleLock = (id: string) => {
+    const el = sectionRefs.current.get(id);
+    const isCurrentlyLocked = widgets.find((w) => w.id === id)?.heightLocked;
+    if (!isCurrentlyLocked && el) {
+      setLockedHeights((prev) => ({ ...prev, [id]: el.getBoundingClientRect().height }));
+    }
+    toggleWidgetHeightLock(id);
+  };
 
   useEffect(() => {
     if (!settling) return;
@@ -132,7 +149,10 @@ export function WidgetGrid() {
   };
 
   return (
-    <div className="grid auto-rows-[minmax(140px,auto)] grid-cols-2 gap-3 sm:grid-cols-4">
+    <div
+      className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      style={{ gridAutoRows: `minmax(140px, ${ROW_MAX_HEIGHT}px)` }}
+    >
       {ordered.map((w) => {
         const Icon = widgetIcon(w.type, w.icon);
         const active = activeWidget === w.id;
@@ -141,9 +161,15 @@ export function WidgetGrid() {
         const isSticky = w.type === "sticky";
         const isCustomizing = customizing === w.id && isSticky;
         const pulse = pulses[w.id];
+        const isLocked = !!w.heightLocked;
+        const lockedHeight = lockedHeights[w.id];
         return (
           <section
             key={w.id}
+            ref={(el) => {
+              if (el) sectionRefs.current.set(w.id, el);
+              else sectionRefs.current.delete(w.id);
+            }}
             draggable
             onDragStart={(e) => {
               dragged.current = w.id;
@@ -173,9 +199,12 @@ export function WidgetGrid() {
               ...(active
                 ? { borderColor: `color-mix(in oklch, ${accent} 35%, transparent)` }
                 : {}),
+              ...(isLocked
+                ? { maxHeight: lockedHeight ? `${lockedHeight}px` : `${ROW_MAX_HEIGHT}px` }
+                : { maxHeight: `${ROW_MAX_HEIGHT * w.height}px` }),
             }}
             className={cn(
-              "desk-panel relative flex cursor-grab flex-col overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
+              "desk-panel relative flex h-full cursor-grab flex-col overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
               spanClass(w),
               active ? "shadow-lift" : "hover:shadow-lift",
               isDragging && "scale-[0.98] opacity-40",
@@ -271,6 +300,7 @@ export function WidgetGrid() {
                   value={`${w.width}x${w.height}` as WidgetSize}
                   onChange={(s) => setWidgetSize(w.id, s)}
                 />
+                <LockControl locked={isLocked} onToggle={() => handleToggleLock(w.id)} />
               </div>
             </header>
             {isCustomizing && (
@@ -283,7 +313,7 @@ export function WidgetGrid() {
                 onTint={(t) => setWidgetTint(w.id, t)}
               />
             )}
-            <div className="@container min-h-0 flex-1 overflow-visible">
+            <div className="@container min-h-0 flex-1 overflow-y-auto">
               <WidgetContent widget={w} />
             </div>
           </section>

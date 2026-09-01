@@ -227,6 +227,7 @@ interface WorkspaceApi extends WorkspaceState {
   saveNoteVersion: () => void;
   restoreNoteVersion: (id: string) => void;
   setWidgetSize: (id: string, size: WidgetSize) => void;
+  toggleWidgetHeightLock: (id: string) => void;
   reorderWidgets: (id: string, toIndex: number) => void;
   setHotelLogo: (hotelId: string, dataUrl: string | null) => void;
   setHotelRoomTypes: (hotelId: string, language: "es" | "en", types: string[]) => void;
@@ -422,6 +423,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const [w, h] = size.split("x").map(Number) as [1 | 2, 1 | 2];
         patchWidgets((ws) => ws.map((x) => (x.id === id ? { ...x, width: w, height: h } : x)));
       },
+      toggleWidgetHeightLock: (id) =>
+        patchWidgets((ws) =>
+          ws.map((x) => (x.id === id ? { ...x, heightLocked: !x.heightLocked } : x)),
+        ),
       reorderWidgets: (id, toIndex) =>
         patchWidgets((ws) => {
           const sorted = [...ws].sort((a, b) => a.position - b.position);

@@ -9,7 +9,7 @@ import { sanitizeHtml } from "@/lib/sanitize-html";
 import { highlightHtml, highlightText, matchesQuery } from "@/lib/highlight";
 import { RECURRENCE_LABELS, WEEKDAY_LABELS, isTaskDueToday } from "@/lib/task-schedule";
 import { CALL_HASHTAGS, PROPERTY_STYLES } from "@/lib/property-codes";
-import { todayISO } from "@/lib/quote-model";
+import { todayISO, localISODate } from "@/lib/quote-model";
 import {
   Select,
   SelectContent,
@@ -824,8 +824,11 @@ function StatsContent({ widget }: { widget: Widget }) {
   const [day, setDay] = useState(todayISO());
   if (widget.content.kind !== "stats") return null;
 
+  // Compare on the LOCAL calendar date of each call, not the raw UTC prefix of
+  // `savedAtISO`. `day` comes from `todayISO()` (local), so slicing the UTC
+  // string would drop evening calls in behind-UTC timezones (e.g. Panama).
   const dayEntries = useMemo(
-    () => callHistory.filter((c) => c.savedAtISO.slice(0, 10) === day),
+    () => callHistory.filter((c) => localISODate(new Date(c.savedAtISO)) === day),
     [callHistory, day],
   );
 

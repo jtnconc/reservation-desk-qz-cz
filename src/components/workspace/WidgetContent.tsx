@@ -866,17 +866,12 @@ function StatsContent({ widget }: { widget: Widget }) {
                 className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-2/50 p-2.5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                      style={{ backgroundColor: style.hex, color: style.fg }}
-                    >
-                      {row.code}
-                    </span>
-                    <span className="truncate text-[10.5px] text-muted-foreground">
-                      {style.label}
-                    </span>
-                  </div>
+                  <span
+                    className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                    style={{ backgroundColor: style.hex, color: style.fg }}
+                  >
+                    {style.label}
+                  </span>
                   <span className="shrink-0 font-mono text-[11px] font-semibold text-foreground">
                     {row.total}
                   </span>

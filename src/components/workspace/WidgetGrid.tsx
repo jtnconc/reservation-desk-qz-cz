@@ -11,9 +11,16 @@ import { accentVar, tintVar } from "./AccentControl";
 import { WidgetCustomizer } from "./WidgetCustomizer";
 import { widgetIcon } from "./widget-icons";
 
-/** Max height (px) a single grid row is allowed to grow to before content
- * must scroll internally instead of stretching the whole row/dashboard. */
-const ROW_MAX_HEIGHT = 320;
+/** Fixed height (px) of a single grid track row. Cards span an exact number
+ * of these rows (1 or 2) and never grow past their span — inner content that
+ * overflows scrolls instead of stretching the row/dashboard. */
+const ROW_UNIT = 150;
+/** Vertical gap (px) between grid rows; must match the `gap-3` utility (0.75rem). */
+const ROW_GAP = 12;
+
+/** Fixed outer height (px) for a card spanning `h` grid rows, including the
+ * inter-row gap that a 2-row card absorbs. */
+const cardHeight = (h: number) => h * ROW_UNIT + (h - 1) * ROW_GAP;
 
 /** True when a widget has something actionable due "now" that should surface
  * a small colored dot on its minimized pill, even while collapsed. */
@@ -148,7 +155,10 @@ export function WidgetGrid() {
   };
 
   return (
-    <div className="grid auto-rows-[minmax(140px,auto)] grid-cols-2 gap-3 sm:grid-cols-4">
+    <div
+      className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      style={{ gridAutoRows: `${ROW_UNIT}px` }}
+    >
       {ordered.map((w) => {
         const Icon = widgetIcon(w.type, w.icon);
         const active = activeWidget === w.id;
@@ -195,13 +205,13 @@ export function WidgetGrid() {
               ...(active
                 ? { borderColor: `color-mix(in oklch, ${accent} 35%, transparent)` }
                 : {}),
-              minHeight: w.height === 2 ? "292px" : "140px",
-              ...(isLocked
-                ? { maxHeight: lockedHeight ? `${lockedHeight}px` : `${ROW_MAX_HEIGHT}px` }
-                : { maxHeight: `${ROW_MAX_HEIGHT * w.height}px` }),
+              // Rigid grid unit: the card is locked to the exact height of its
+              // row span so content can never alter the track height. Overflow
+              // is handled by the inner scroll container below.
+              height: isLocked && lockedHeight ? `${lockedHeight}px` : `${cardHeight(w.height)}px`,
             }}
             className={cn(
-              "desk-panel relative flex cursor-grab flex-col self-start overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
+              "desk-panel relative flex cursor-grab flex-col overflow-hidden p-4 transition-all duration-300 active:cursor-grabbing",
               spanClass(w),
               active ? "shadow-lift" : "hover:shadow-lift",
               isDragging && "scale-[0.98] opacity-40",

@@ -162,6 +162,33 @@
   display: block;
 }
 
+/* Bulleted lists (Tailwind's preflight resets list markers/padding). */
+.notes-editor ul,
+.notes-rich ul {
+  list-style: disc;
+  padding-left: 1.5em;
+  margin: 4px 0;
+}
+
+.notes-editor ol,
+.notes-rich ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+  margin: 4px 0;
+}
+
+.notes-editor li,
+.notes-rich li {
+  display: list-item;
+}
+
+/* Pastel text highlights. */
+.notes-editor mark,
+.notes-rich mark {
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 /* Read-only rich note rendering (bold / italic / colors / images preserved). */
 .notes-rich {
   white-space: pre-wrap;

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { History, PhoneOff, Save } from "lucide-react";
-import { toast } from "sonner";
 import { useWorkspace } from "@/workspace/store";
 import {
   ENTITY_STYLES,
@@ -178,18 +177,10 @@ export function NotesTool() {
                 const { title, date } = extractReminder(text);
                 if (!title) return;
                 addReminder(title, date);
-                toast.success("Reminder created", {
-                  description: [title, date].filter(Boolean).join(" · "),
-                });
               } else {
                 const draft = extractContact(text);
                 if (!draft.name) return;
                 addContact(draft);
-                toast.success("Contact created", {
-                  description: [draft.company, draft.email, draft.phone]
-                    .filter(Boolean)
-                    .join(" · ") || draft.name,
-                });
               }
 
               el.innerHTML = "";
@@ -232,9 +223,6 @@ export function NotesTool() {
                 el.innerHTML = "";
                 setPlain("");
                 setActiveTags(new Set());
-                toast.success("Call ended", {
-                  description: activePropertyStyle.label,
-                });
               }}
               aria-label="End call"
               title="End call"
@@ -295,7 +283,6 @@ export function NotesTool() {
               saveNoteToWidget();
               el.innerHTML = "";
               setPlain("");
-              toast.success("Note saved");
             }}
             aria-label="Save note"
             title="Save note"

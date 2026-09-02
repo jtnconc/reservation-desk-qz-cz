@@ -6,7 +6,6 @@ import { WidgetGrid } from "@/components/workspace/WidgetGrid";
 import { NotesTool } from "@/components/tools/NotesTool";
 import { RatesTool } from "@/components/tools/RatesTool";
 import { QuoteTool } from "@/components/tools/QuoteTool";
-import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -45,7 +44,6 @@ function WorkspacePage() {
         <main className="mx-auto flex w-full max-w-[1240px] min-h-0 flex-1 flex-col px-5 pb-3 pt-0">
           <Workspace quotePreview={quotePreview} quoteHistory={quoteHistory} />
         </main>
-        <Toaster position="bottom-right" />
       </div>
     </WorkspaceProvider>
   );

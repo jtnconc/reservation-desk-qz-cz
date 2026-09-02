@@ -107,7 +107,13 @@ export function WidgetGrid() {
 
   if (minimized)
     return (
-      <div className="flex w-full min-w-0 flex-row flex-nowrap gap-2 overflow-x-auto whitespace-nowrap">
+      // Horizontal scroll needs overflow-x-auto, but per the CSS overflow
+      // spec any non-visible x/y pairing forces the *other* axis to auto
+      // too — so overflow-x-auto alone silently clips a badge that sits
+      // outside a pill's edge. Reserve room with padding and keep each
+      // badge's center on the pill's corner (translate by half its own
+      // size) so it always renders inside this scrollable box.
+      <div className="flex w-full min-w-0 flex-row flex-nowrap gap-2 overflow-x-auto whitespace-nowrap p-1 pt-2">
         {ordered.map((w) => {
           const Icon = widgetIcon(w.type, w.icon);
           const pulse = pulses[w.id];
@@ -128,14 +134,14 @@ export function WidgetGrid() {
               />
               <span className="label-xs group-hover:text-foreground">{w.title}</span>
               {pulse ? (
-                <span className="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 py-[1px] text-[10px] font-semibold text-primary-foreground">
+                <span className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-primary px-1.5 py-[1px] text-[10px] font-semibold text-primary-foreground">
                   +{pulse}
                 </span>
               ) : badgeColor ? (
                 <span
                   aria-label="Due today"
                   title="Due today"
-                  className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full ring-2 ring-surface"
+                  className="absolute right-0 top-0 z-10 size-2.5 -translate-y-1/2 translate-x-1/2 rounded-full ring-2 ring-surface"
                   style={{ backgroundColor: badgeColor }}
                 />
               ) : null}

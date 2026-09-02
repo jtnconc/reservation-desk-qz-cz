@@ -29,6 +29,7 @@ export function SizeControl({
   locked = false,
   onToggleLock,
   onReturn,
+  returnLabel = "Return note to Notes list",
 }: {
   value: WidgetSize;
   onChange: (size: WidgetSize) => void;
@@ -36,8 +37,10 @@ export function SizeControl({
   locked?: boolean;
   /** shown as an extra option inside the expanded popover, after the size glyphs */
   onToggleLock?: () => void;
-  /** shown as an extra option that converts a standalone sticky note back into a Notes list item */
-  onReturn?: () => void;
+  /** shown as an extra option that converts a standalone sticky note back into its source list item */
+  onReturn?: (() => void) | undefined;
+  /** accessible label/title for the return action, tailored to the source list */
+  returnLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -107,8 +110,8 @@ export function SizeControl({
               <span className="h-3 w-px bg-border" aria-hidden="true" />
               <button
                 type="button"
-                aria-label="Return note to Notes list"
-                title="Return note to Notes list"
+                aria-label={returnLabel}
+                title={returnLabel}
                 onClick={(e) => {
                   e.stopPropagation();
                   onReturn();

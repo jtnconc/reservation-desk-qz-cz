@@ -292,6 +292,11 @@ export function WidgetGrid() {
                   locked={isLocked}
                   onToggleLock={() => handleToggleLock(w.id)}
                   onReturn={isSticky ? () => returnStickyToNotes(w.id) : undefined}
+                  returnLabel={
+                    w.content.kind === "information"
+                      ? "Return detail to Information list"
+                      : "Return note to Notes list"
+                  }
                 />
               </div>
             </header>

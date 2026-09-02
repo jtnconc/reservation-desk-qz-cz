@@ -718,7 +718,7 @@ function NotesContent({ widget }: { widget: Widget }) {
  * look (uppercase muted label / monospace dark value).
  */
 function InformationContent({ widget }: { widget: Widget }) {
-  const { updateInformation, deleteInformation, addInformation, toggleInformationPin, convertInformationToSticky, searchQuery } =
+  const { updateInformation, deleteInformation, toggleInformationPin, convertInformationToSticky, searchQuery } =
     useWorkspace();
   const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -819,16 +819,6 @@ function InformationContent({ widget }: { widget: Widget }) {
           })}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          addInformation(widget.id);
-        }}
-        className="label-xs hover:text-foreground"
-      >
-        + Add detail
-      </button>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   FileDown,
   ImageUp,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -35,6 +36,12 @@ import { Switch } from "@/components/ui/switch";
 import { DateField } from "@/components/common/DateField";
 import { DateRangeField } from "@/components/common/DateRangeField";
 import { SoftSelect } from "@/components/common/SoftSelect";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 
 
@@ -183,6 +190,16 @@ export function QuoteTool({ showPreview = false, showHistory = false }: QuoteToo
 const [showDetails, setShowDetails] = useState(false);
 const [showRooms, setShowRooms] = useState(false);
 const [collapsedItems, setCollapsedItems] = useState<Set<string>>(() => new Set());
+const [historyQuery, setHistoryQuery] = useState("");
+
+const filteredHistory = useMemo(() => {
+  const q = historyQuery.trim().toLowerCase();
+  if (!q) return quoteHistory;
+  return quoteHistory.filter((h) => {
+    const haystack = [h.company, h.recipient, quoteNumber(h), getHotel(h.hotelId).name];
+    return haystack.some((value) => (value ?? "").toLowerCase().includes(q));
+  });
+}, [quoteHistory, historyQuery]);
 
 const toggleItem = (itemId: string) => {
   setCollapsedItems((current) => {
@@ -241,7 +258,7 @@ const toggleItem = (itemId: string) => {
     });
   };
 
-  const addItem = () => {
+  const addItem = (kind: "room" | "other" = "room") => {
     const last = quote.items[quote.items.length - 1];
     const newItemId = uid();
     updateQuote({
@@ -249,8 +266,9 @@ const toggleItem = (itemId: string) => {
         ...quote.items,
         {
           id: newItemId,
+          kind,
           quantity: 1,
-          roomType: roomTypes[0] ?? "",
+          roomType: kind === "room" ? roomTypes[0] ?? "" : "",
           accommodation: "Single" as Accommodation,
           guestName: "",
           arrival: last?.arrival || quote.arrival,
@@ -465,11 +483,19 @@ const toggleItem = (itemId: string) => {
                   {collapsedItems.has(item.id) ? (
                     <div className="flex min-w-0 flex-row items-center gap-2 overflow-x-auto whitespace-nowrap bg-surface-2 px-3 py-2.5">
                       <span className="shrink-0 rounded-full border border-border bg-white px-2.5 py-0.5 text-[12px] font-semibold text-foreground tabular-nums">
-                        {item.quantity || 1} {item.roomType}
+                        {item.quantity || 1}{" "}
+                        {item.roomType ||
+                          (item.kind === "other"
+                            ? lang === "es"
+                              ? "Sin descripción"
+                              : "No description"
+                            : "")}
                       </span>
-                      <span className="shrink-0 rounded-full border border-border bg-white px-2.5 py-0.5 text-[12px] font-medium text-foreground">
-                        {item.accommodation}
-                      </span>
+                      {item.kind !== "other" && (
+                        <span className="shrink-0 rounded-full border border-border bg-white px-2.5 py-0.5 text-[12px] font-medium text-foreground">
+                          {item.accommodation}
+                        </span>
+                      )}
                       <span className="shrink-0 rounded-full border border-border bg-white px-2.5 py-0.5 text-[12px] font-medium text-foreground">
                         {L.guest}: {(item.guestName ?? "").trim() || (lang === "es" ? "Por confirmar" : "Pending")}
                       </span>
@@ -515,42 +541,60 @@ const toggleItem = (itemId: string) => {
                           "number-input-clean h-8 w-12 shrink-0 px-2 py-1 text-center font-semibold",
                         )}
                       />
-                      <div className="min-w-0 flex-1">
-                        <SoftSelect
+                      {item.kind === "other" ? (
+                        <input
                           value={item.roomType}
-                          onChange={(value) => {
-                            if (value === "__manage") {
-                              setShowRooms(true);
-                              return;
-                            }
-                            patchItem(item.id, { roomType: value });
-                          }}
-                          options={[
-                            ...roomTypes.map((room) => ({ value: room, label: room })),
-                            {
-                              value: "__manage",
-                              label:
-                                lang === "es"
-                                  ? "+ Gestionar/Editar habitaciones"
-                                  : "+ Manage/Edit room types",
-                            },
-                          ]}
-                          className="h-8 border-border bg-white px-2 py-1 font-semibold text-foreground shadow-none"
-                          aria-label={L.roomType}
+                          onChange={(event) =>
+                            patchItem(item.id, { roomType: event.target.value })
+                          }
+                          placeholder={
+                            lang === "es"
+                              ? "Descripción (ej. Servicio de Alimentación)"
+                              : "Description (e.g. Catering Service)"
+                          }
+                          aria-label={lang === "es" ? "Descripción" : "Description"}
+                          className={cn(inputCls, "h-8 min-w-0 flex-1 py-1 font-semibold")}
                         />
-                      </div>
-                      <SoftSelect
-                        value={item.accommodation}
-                        onChange={(value) =>
-                          patchItem(item.id, { accommodation: value as Accommodation })
-                        }
-                        options={hotel.accommodations.map((option) => ({
-                          value: option,
-                          label: option,
-                        }))}
-                        className="h-7 w-auto shrink-0 rounded-full border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-foreground"
-                        aria-label={L.accommodation}
-                      />
+                      ) : (
+                        <>
+                          <div className="min-w-0 flex-1">
+                            <SoftSelect
+                              value={item.roomType}
+                              onChange={(value) => {
+                                if (value === "__manage") {
+                                  setShowRooms(true);
+                                  return;
+                                }
+                                patchItem(item.id, { roomType: value });
+                              }}
+                              options={[
+                                ...roomTypes.map((room) => ({ value: room, label: room })),
+                                {
+                                  value: "__manage",
+                                  label:
+                                    lang === "es"
+                                      ? "+ Gestionar/Editar habitaciones"
+                                      : "+ Manage/Edit room types",
+                                },
+                              ]}
+                              className="h-8 border-border bg-white px-2 py-1 font-semibold text-foreground shadow-none"
+                              aria-label={L.roomType}
+                            />
+                          </div>
+                          <SoftSelect
+                            value={item.accommodation}
+                            onChange={(value) =>
+                              patchItem(item.id, { accommodation: value as Accommodation })
+                            }
+                            options={hotel.accommodations.map((option) => ({
+                              value: option,
+                              label: option,
+                            }))}
+                            className="h-7 w-auto shrink-0 rounded-full border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-foreground"
+                            aria-label={L.accommodation}
+                          />
+                        </>
+                      )}
                       <input
                         value={item.guestName ?? ""}
                         onChange={(event) =>
@@ -669,12 +713,31 @@ const toggleItem = (itemId: string) => {
           </div>
 
           <div className="mt-2 flex items-center justify-between">
-            <button
-              onClick={addItem}
-              className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Plus className="size-3" /> {lang === "es" ? "Agregar fila" : "Add row"}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground">
+                  <Plus className="size-3" /> {lang === "es" ? "Agregar fila" : "Add row"}
+                  <ChevronDown className="size-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="rounded-xl border-border bg-popover text-popover-foreground shadow-desk"
+              >
+                <DropdownMenuItem
+                  onSelect={() => addItem("room")}
+                  className="cursor-pointer rounded-lg text-[12.5px] focus:bg-secondary focus:text-foreground"
+                >
+                  {lang === "es" ? "Habitaciones" : "Rooms"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => addItem("other")}
+                  className="cursor-pointer rounded-lg text-[12.5px] focus:bg-secondary focus:text-foreground"
+                >
+                  {lang === "es" ? "Otros" : "Other"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <dl className="w-56 space-y-1.5 text-[13px]">
               {quote.items.length > 1 && (
                 <div className="flex justify-between">
@@ -830,6 +893,18 @@ const toggleItem = (itemId: string) => {
       {showHistory && (
         <aside className="max-h-64 w-full shrink-0 overflow-auto border-t border-border pt-4 lg:max-h-none lg:w-64 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
           <p className="label-xs mb-2">{lang === "es" ? "Historial" : "History"}</p>
+          {quoteHistory.length > 0 && (
+            <div className="relative mb-2">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={historyQuery}
+                onChange={(e) => setHistoryQuery(e.target.value)}
+                placeholder={lang === "es" ? "Buscar cotizaciones..." : "Search quotes..."}
+                aria-label={lang === "es" ? "Buscar cotizaciones" : "Search quotes"}
+                className={cn(inputCls, "h-8 py-1 pl-8")}
+              />
+            </div>
+          )}
           {quoteHistory.length === 0 && (
             <p className="text-[12px] text-muted-foreground">
               {lang === "es"
@@ -837,8 +912,13 @@ const toggleItem = (itemId: string) => {
                 : "Each generated PDF is archived here."}
             </p>
           )}
+          {quoteHistory.length > 0 && filteredHistory.length === 0 && (
+            <p className="text-[12px] text-muted-foreground">
+              {lang === "es" ? "Sin resultados." : "No results."}
+            </p>
+          )}
           <ul className="space-y-2">
-            {quoteHistory.map((q) => (
+            {filteredHistory.map((q) => (
               <li key={q.id + q.updatedAt} className="rounded-xl bg-surface-2 p-2.5">
                 <p className="tabular-nums text-[10.5px] text-muted-foreground">
                   {quoteNumber(q)} · {formatDate(q.issueDate, q.language)}

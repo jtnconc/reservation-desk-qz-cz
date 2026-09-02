@@ -175,7 +175,11 @@ export interface HotelDetails {
 
 export interface QuoteLineItem {
   id: string;
+  /** "room" (default) is a standard accommodation row; "other" is a free-text
+   * service row (e.g. catering) with an open description instead of a room type. */
+  kind?: "room" | "other";
   quantity: number;
+  /** Room type for "room" rows; free-text description for "other" rows. */
   roomType: string;
   accommodation: Accommodation;
   /** Guest name for this specific room row */

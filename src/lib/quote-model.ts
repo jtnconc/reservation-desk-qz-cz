@@ -110,6 +110,9 @@ const itemRange = (item: QuoteLineItem, quote: QuoteDoc) => ({
 /** Per-row description based on the specific item accommodation and its own dates. */
 export function buildItemDescription(item: QuoteLineItem, quote: QuoteDoc) {
   const lang: QuoteLanguage = quote.language === "en" ? "en" : "es";
+  if (item.kind === "other") {
+    return item.roomType.trim() || (lang === "es" ? "Servicio adicional" : "Additional service");
+  }
   const pax = PAX[item.accommodation] ?? 1;
   const { arrival, departure } = itemRange(item, quote);
   const range = formatDateRange(arrival, departure, lang);
@@ -196,10 +199,31 @@ const HOTEL_QUOTE_PREFIX: Record<string, string> = {
   "residence-inn": "RI",
 };
 
+/** Short property code for a hotel (e.g. "RI", "AR", "ER"), used in the
+ * internal quote number and the exported file name. */
+export function hotelPropertyCode(hotelId: string) {
+  return (
+    HOTEL_QUOTE_PREFIX[hotelId] ??
+    (hotelId.replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase() || "QT")
+  );
+}
+
 /** Quotation number printed on the PDF, e.g. "AR-1A2B3C". */
 export function quoteNumber(quote: QuoteDoc) {
-  const prefix =
-    HOTEL_QUOTE_PREFIX[quote.hotelId] ??
-    (quote.hotelId.replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase() || "QT");
-  return `${prefix}-${quote.id.slice(-6).toUpperCase()}`;
+  return `${hotelPropertyCode(quote.hotelId)}-${quote.id.slice(-6).toUpperCase()}`;
+}
+
+/**
+ * File name (without extension) for the exported PDF: primary name is the
+ * company, falling back to the recipient, suffixed with the property short
+ * code and the issue date in DDMMYY format.
+ * e.g. "EmpresaXYZ_RI_020926" or "JuanPerez_AC_020926".
+ */
+export function quoteFileBaseName(quote: QuoteDoc) {
+  const nameSource = quote.company.trim() || quote.recipient.trim() || "Cotizacion";
+  const cleanName = nameSource.replace(/[^a-zA-Z0-9]+/g, "") || "Cotizacion";
+  const code = hotelPropertyCode(quote.hotelId);
+  const { y, m, d } = parts(quote.issueDate);
+  const dateStr = `${String(d).padStart(2, "0")}${String(m + 1).padStart(2, "0")}${String(y).slice(-2)}`;
+  return `${cleanName}_${code}_${dateStr}`;
 }

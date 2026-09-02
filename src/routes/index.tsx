@@ -61,12 +61,15 @@ function Workspace({
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
-      {/* Tool area — expands in tool mode, retracts fully in widget mode */}
+      {/* Tool area — expands in tool mode, retracts fully in widget mode.
+          flex-1 + min-h-0 (rather than a fixed min-h) lets this card size
+          itself to exactly whatever space remains above the pill nav, so it
+          shrinks smoothly on resize instead of forcing the nav off-screen. */}
       <section
         className={cn(
           "desk-panel min-w-0 overflow-hidden transition-all duration-500 ease-[var(--ease-desk)]",
           toolMode
-            ? "flex min-h-[calc(100vh-6.5rem)] flex-1 flex-col p-4 opacity-100 sm:p-6"
+            ? "flex min-h-0 flex-1 flex-col p-4 pb-3 opacity-100 sm:p-6 sm:pb-4"
             : "pointer-events-none max-h-0 border-0 p-0 opacity-0 shadow-none",
         )}
         aria-hidden={!toolMode}

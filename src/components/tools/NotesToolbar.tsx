@@ -11,6 +11,8 @@ import {
   BookText,
   Terminal,
   Sparkles,
+  List,
+  Highlighter,
 } from "lucide-react";
 import {
   Popover,
@@ -22,6 +24,8 @@ import {
   execNotesCommand,
   insertNotesImage,
   applyNotesFontSize,
+  toggleNotesList,
+  applyNotesHighlight,
 } from "./notes-format";
 
 const COLORS = [
@@ -60,6 +64,14 @@ const FONTS = [
   },
 ];
 
+const HIGHLIGHTS = [
+  { label: "Soft yellow", value: "#fef3c7" },
+  { label: "Soft green", value: "#dcfce7" },
+  { label: "Soft pink", value: "#fce7f3" },
+  { label: "Soft blue", value: "#dbeafe" },
+  { label: "Soft lavender", value: "#ede9fe" },
+];
+
 const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 96;
 const DEFAULT_FONT_SIZE = 16;
@@ -71,7 +83,11 @@ const activeBtn =
 
 export function NotesToolbar() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [active, setActive] = useState({ bold: false, italic: false });
+  const [active, setActive] = useState({
+    bold: false,
+    italic: false,
+    list: false,
+  });
   const [activeFont, setActiveFont] = useState(FONTS[0]?.value ?? "");
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [sizeInput, setSizeInput] = useState(String(DEFAULT_FONT_SIZE));
@@ -80,6 +96,7 @@ export function NotesToolbar() {
     setActive({
       bold: document.queryCommandState("bold"),
       italic: document.queryCommandState("italic"),
+      list: document.queryCommandState("insertUnorderedList"),
     });
   };
 
@@ -134,6 +151,49 @@ export function NotesToolbar() {
       >
         <Italic className="size-[14px]" />
       </button>
+
+      <button
+        type="button"
+        aria-label="Bullet list"
+        aria-pressed={active.list}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          toggleNotesList();
+          syncActive();
+        }}
+        className={cn(btn, active.list && activeBtn)}
+      >
+        <List className="size-[14px]" />
+      </button>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Highlight text"
+            onMouseDown={(e) => e.preventDefault()}
+            className={btn}
+          >
+            <Highlighter className="size-[14px]" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-2">
+          <div className="flex items-center gap-1.5">
+            {HIGHLIGHTS.map((h) => (
+              <button
+                key={h.value}
+                type="button"
+                aria-label={h.label}
+                title={h.label}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyNotesHighlight(h.value)}
+                className="size-6 rounded-full border border-border transition-transform hover:scale-110"
+                style={{ backgroundColor: h.value }}
+              />
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <Popover>
         <PopoverTrigger asChild>

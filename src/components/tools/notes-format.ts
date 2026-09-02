@@ -26,6 +26,37 @@ export function execNotesCommand(command: string, value?: string) {
   });
 }
 
+/** Toggles a bulleted list (`<ul><li>`) around the current selection/line. */
+export function toggleNotesList() {
+  execNotesCommand("insertUnorderedList");
+}
+
+/**
+ * Wraps the current selection in a `<mark style="background-color: …">` using
+ * the chosen pastel color. A dark ink color is applied so the text stays
+ * readable on the light highlight regardless of the editor theme.
+ */
+export function applyNotesHighlight(color: string) {
+  withEditor(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+
+    const mark = document.createElement("mark");
+    mark.style.backgroundColor = color;
+    mark.style.color = "#1c1c1e";
+    mark.appendChild(range.extractContents());
+    range.insertNode(mark);
+
+    // Keep the highlighted text selected after applying.
+    sel.removeAllRanges();
+    const next = document.createRange();
+    next.selectNodeContents(mark);
+    sel.addRange(next);
+  });
+}
+
 export function insertNotesImage(dataUrl: string) {
   withEditor(() => {
     document.execCommand(

@@ -6,7 +6,7 @@ import {
   formatDate,
   itemNights,
   lineSubtotal,
-  quoteNumber,
+  quoteFileBaseName,
   quoteTotals,
 } from "./quote-model";
 
@@ -183,7 +183,8 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
       (item.guestName ?? "").trim() ||
       (quote.language === "es" ? "Por confirmar" : "Pending");
     const nameLines = doc.splitTextToSize(rowGuest, cols[1]!.w);
-    const roomLines = doc.splitTextToSize(item.roomType, cols[3]!.w);
+    const roomLines =
+      item.kind === "other" ? [] : doc.splitTextToSize(item.roomType, cols[3]!.w);
     const maxLines = Math.max(descLines.length, nameLines.length, roomLines.length, 1);
     const rowH = Math.max(maxLines * 10 + 14, 26);
     if (index % 2 === 1) doc.setFillColor(250, 250, 249).rect(M, y, tableW, rowH, "F");
@@ -295,18 +296,14 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
     y += 12;
   }
 
-  // ---- Footer: discreet quotation reference, bottom-right, low-contrast gray.
-  const pageH = doc.internal.pageSize.getHeight();
-  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(198, 201, 208);
-  doc.text(`${L.quotationNo} ${quoteNumber(quote)}`, W - M, pageH - 26, { align: "right" });
+  // Internal quote code is intentionally omitted from the exported PDF —
+  // it stays visible only in the app workspace and history sidebar.
 
   return doc;
 }
 
 export function generateQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?: string) {
-  buildQuotePdf(quote, hotel, logoImage).save(
-    `cotizacion-${hotel.id}-${quote.id.slice(-6)}.pdf`,
-  );
+  buildQuotePdf(quote, hotel, logoImage).save(`${quoteFileBaseName(quote)}.pdf`);
 }
 
 /** Blob URL for an in-place preview of the exact same document. */

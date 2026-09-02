@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Check, Clock, Pencil, Pin, Repeat, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Check, Clock, Pencil, Pin, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
 import { DateField } from "@/components/common/DateField";
@@ -10,6 +10,7 @@ import { highlightHtml, highlightText, matchesQuery } from "@/lib/highlight";
 import { RECURRENCE_LABELS, WEEKDAY_LABELS, isTaskDueToday } from "@/lib/task-schedule";
 import { CALL_HASHTAGS, PROPERTY_STYLES } from "@/lib/property-codes";
 import { todayISO, localISODate } from "@/lib/quote-model";
+import { DEFAULT_NOTIFY_MINUTES, NOTIFY_OPTIONS, isReminderAlertActive } from "@/lib/reminder-alert";
 import {
   Select,
   SelectContent,
@@ -324,6 +325,15 @@ function RemindersContent({ widget }: { widget: Widget }) {
   const [rescheduling, setRescheduling] = useState<string | null>(null);
   const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+
+  // Re-render every 30s so the "active alert" highlight appears the instant
+  // the current time crosses a reminder's configured "Notify me" threshold.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   if (widget.content.kind !== "reminders") return null;
   const accent = accentVar(widget.accent);
   const items = widget.content.items.filter((r) => matchesQuery(r.title, searchQuery));
@@ -336,10 +346,16 @@ function RemindersContent({ widget }: { widget: Widget }) {
         const isEditing = editing === r.id;
         const isRescheduling = rescheduling === r.id;
         const isConfirming = confirming === r.id;
+        const isAlertActive = !done && isReminderAlertActive(r);
         return (
           <li
             key={r.id}
-            className="group relative flex min-h-7 gap-2.5 pr-1"
+            className="group relative flex min-h-7 gap-2.5 rounded-lg pr-1 pl-1.5 transition-colors"
+            style={
+              isAlertActive
+                ? { backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)` }
+                : undefined
+            }
             onClick={() => setTapped((v) => (v === r.id ? null : r.id))}
           >
             <button
@@ -360,7 +376,7 @@ function RemindersContent({ widget }: { widget: Widget }) {
               {done && <Check className="size-2 text-white" strokeWidth={3} />}
             </button>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 py-0.5">
               {isEditing ? (
                 <div className="space-y-1.5" onClick={stop} onPointerDown={stop}>
                   <input
@@ -380,14 +396,24 @@ function RemindersContent({ widget }: { widget: Widget }) {
                   </button>
                 </div>
               ) : (
-                <p
-                  className={cn(
-                    "truncate text-[13px] leading-snug",
-                    done && "text-muted-foreground line-through",
+                <div className="flex items-start gap-1.5">
+                  <p
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                      done && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {highlightText(r.title, searchQuery)}
+                  </p>
+                  {isAlertActive && (
+                    <span
+                      aria-hidden
+                      className="mt-1 size-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: accent }}
+                      title="Alert active"
+                    />
                   )}
-                >
-                  {highlightText(r.title, searchQuery)}
-                </p>
+                </div>
               )}
 
               {isRescheduling ? (
@@ -405,6 +431,27 @@ function RemindersContent({ widget }: { widget: Widget }) {
                       onChange={(t) => updateReminder(widget.id, r.id, { time: t })}
                     />
                   </div>
+
+                  <Select
+                    value={String(r.notifyMinutesBefore ?? DEFAULT_NOTIFY_MINUTES)}
+                    onValueChange={(v) =>
+                      updateReminder(widget.id, r.id, { notifyMinutesBefore: Number(v) })
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="Notify me"
+                      className="h-auto w-full rounded-xl border-border bg-surface px-2 py-1 text-[11px] shadow-none focus:ring-0 focus-visible:border-ring"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {NOTIFY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={String(opt.value)} className="text-[12px]">
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   <button
                     type="button"
@@ -718,8 +765,14 @@ function NotesContent({ widget }: { widget: Widget }) {
  * look (uppercase muted label / monospace dark value).
  */
 function InformationContent({ widget }: { widget: Widget }) {
-  const { updateInformation, deleteInformation, toggleInformationPin, convertInformationToSticky, searchQuery } =
-    useWorkspace();
+  const {
+    updateInformation,
+    deleteInformation,
+    toggleInformationPin,
+    convertInformationToSticky,
+    addInformation,
+    searchQuery,
+  } = useWorkspace();
   const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const valueRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -819,6 +872,13 @@ function InformationContent({ widget }: { widget: Widget }) {
           })}
         </ul>
       )}
+      <button
+        type="button"
+        onClick={() => addInformation(widget.id)}
+        className="label-xs flex items-center gap-1 rounded-md px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Plus className="size-3" /> Add detail
+      </button>
     </div>
   );
 }

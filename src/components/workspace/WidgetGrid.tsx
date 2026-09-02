@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { Widget, WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
@@ -62,7 +61,6 @@ export function WidgetGrid() {
     returnStickyToNotes,
     reorderWidgets,
     toggleWidgetHeightLock,
-    addInformation,
     pulses,
     clearPulse,
   } = useWorkspace();
@@ -302,22 +300,6 @@ export function WidgetGrid() {
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {w.content.kind === "information" && (
-                  <button
-                    type="button"
-                    aria-label="Add detail"
-                    title="Add detail"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onDragStart={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addInformation(w.id);
-                    }}
-                    className="flex size-5 items-center justify-center rounded-md opacity-50 transition-opacity duration-200 ease-out hover:bg-secondary hover:opacity-100"
-                  >
-                    <Plus className="size-[15px]" />
-                  </button>
-                )}
                 <SizeControl
                   value={`${w.width}x${w.height}` as WidgetSize}
                   onChange={(s) => setWidgetSize(w.id, s)}

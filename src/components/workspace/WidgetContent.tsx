@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Check, Clock, Pencil, Pin, Repeat, Trash2, X } from "lucide-react";
+import { ArrowUpRight, Check, Clock, Pencil, Pin, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
 import { DateField } from "@/components/common/DateField";
@@ -350,13 +350,10 @@ function RemindersContent({ widget }: { widget: Widget }) {
         return (
           <li
             key={r.id}
-            className={cn(
-              "group relative flex min-h-7 gap-2.5 rounded-lg border border-transparent pr-1 pl-1.5 transition-colors",
-              isAlertActive && "border",
-            )}
+            className="group relative flex min-h-7 gap-2.5 rounded-lg pr-1 pl-1.5 transition-colors"
             style={
               isAlertActive
-                ? { backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, borderColor: accent }
+                ? { backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)` }
                 : undefined
             }
             onClick={() => setTapped((v) => (v === r.id ? null : r.id))}
@@ -768,8 +765,14 @@ function NotesContent({ widget }: { widget: Widget }) {
  * look (uppercase muted label / monospace dark value).
  */
 function InformationContent({ widget }: { widget: Widget }) {
-  const { updateInformation, deleteInformation, toggleInformationPin, convertInformationToSticky, searchQuery } =
-    useWorkspace();
+  const {
+    updateInformation,
+    deleteInformation,
+    toggleInformationPin,
+    convertInformationToSticky,
+    addInformation,
+    searchQuery,
+  } = useWorkspace();
   const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const valueRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -869,6 +872,13 @@ function InformationContent({ widget }: { widget: Widget }) {
           })}
         </ul>
       )}
+      <button
+        type="button"
+        onClick={() => addInformation(widget.id)}
+        className="label-xs flex items-center gap-1 rounded-md px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Plus className="size-3" /> Add detail
+      </button>
     </div>
   );
 }

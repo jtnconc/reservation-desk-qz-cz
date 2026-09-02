@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Check, Clock, Pencil, Pin, Repeat, Trash2, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
@@ -711,105 +711,124 @@ function NotesContent({ widget }: { widget: Widget }) {
 }
 
 /**
- * INFORMATION renders as one unified 2-column block (labels left, monospace
- * values right-aligned). Actions are hidden by default; clicking the table
- * reveals a compact floating toolbar with edit / detach / clear icons.
+ * INFORMATION renders as a list of individually editable key/value rows,
+ * matching the interaction pattern of NOTES: tap/hover reveals a contextual
+ * action bar (pin, edit, convert to sticky note, delete) and the label/value
+ * fields themselves are always live-editable, preserving the two-font table
+ * look (uppercase muted label / monospace dark value).
  */
 function InformationContent({ widget }: { widget: Widget }) {
-  const {
-    updateInformation,
-    deleteInformation,
-    addInformation,
-    clearInformation,
-    convertInformationToSticky,
-    searchQuery,
-  } = useWorkspace();
-  const [editing, setEditing] = useState(false);
-  const [toolbar, setToolbar] = useState(false);
+  const { updateInformation, deleteInformation, addInformation, toggleInformationPin, convertInformationToSticky, searchQuery } =
+    useWorkspace();
+  const [tapped, setTapped] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const valueRefs = useRef<Record<string, HTMLInputElement | null>>({});
   if (widget.content.kind !== "information") return null;
-  const items = widget.content.items;
-  const visible = items.filter((i) => matchesQuery(`${i.label} ${i.value}`, searchQuery));
-  const field =
-    "w-full rounded-lg bg-surface px-2 py-1 text-[12px] outline-none focus:ring-1 focus:ring-ring";
 
-  if (editing)
-    return (
-      <div className="space-y-2" onClick={stop} onPointerDown={stop}>
-        {items.map((i) => (
-          <div key={i.id} className="flex items-center gap-1.5">
-            <input
-              value={i.label}
-              aria-label="Label"
-              placeholder="Label"
-              onChange={(e) => updateInformation(widget.id, i.id, { label: e.target.value })}
-              className={field}
-            />
-            <input
-              value={i.value}
-              aria-label="Value"
-              placeholder="Value"
-              onChange={(e) => updateInformation(widget.id, i.id, { value: e.target.value })}
-              className={cn(field, "font-mono")}
-            />
-            <MiniAction label="Remove row" onClick={() => deleteInformation(widget.id, i.id)}>
-              <Trash2 className="size-3" />
-            </MiniAction>
-          </div>
-        ))}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => addInformation(widget.id)}
-            className="label-xs hover:text-foreground"
-          >
-            Add row
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="label-xs hover:text-foreground"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    );
+  const ordered = [...widget.content.items]
+    .filter((i) => matchesQuery(`${i.label} ${i.value}`, searchQuery))
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
 
   return (
-    <div
-      className="relative"
-      onClick={(e) => {
-        e.stopPropagation();
-        setToolbar((v) => !v);
-      }}
-    >
-      {toolbar && (
-        <div
-          className="absolute -top-8 right-1 z-20 flex items-center gap-0.5 rounded-xl bg-surface/90 px-1.5 py-1 backdrop-blur-[3px]"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <MiniAction label="Edit block" onClick={() => setEditing(true)}>
-            <Pencil className="size-3" />
-          </MiniAction>
-          <MiniAction label="Detach as sticky note" onClick={() => convertInformationToSticky(widget.id)}>
-            <ArrowUpRight className="size-3" />
-          </MiniAction>
-          <MiniAction label="Clear information" onClick={() => clearInformation(widget.id)}>
-            <Trash2 className="size-3" />
-          </MiniAction>
-        </div>
+    <div className="space-y-2">
+      {ordered.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground">
+          {searchQuery.trim() ? "No details match your search." : "No details yet."}
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl bg-surface-2">
+          {ordered.map((i) => {
+            const isConfirming = confirming === i.id;
+            return (
+              <li
+                key={i.id}
+                className={cn(
+                  "group relative flex items-center gap-3 px-3 py-1.5",
+                  i.pinned && "bg-surface",
+                )}
+                onClick={() => setTapped((v) => (v === i.id ? null : i.id))}
+              >
+                <input
+                  value={i.label}
+                  aria-label="Label"
+                  placeholder="LABEL"
+                  onClick={stop}
+                  onPointerDown={stop}
+                  onChange={(e) => updateInformation(widget.id, i.id, { label: e.target.value })}
+                  className="label-xs w-24 shrink-0 truncate bg-transparent outline-none focus:ring-1 focus:ring-ring rounded-md px-1 -mx-1"
+                />
+                <input
+                  ref={(el) => {
+                    valueRefs.current[i.id] = el;
+                  }}
+                  value={i.value}
+                  aria-label="Value"
+                  placeholder="Value"
+                  onClick={stop}
+                  onPointerDown={stop}
+                  onChange={(e) => updateInformation(widget.id, i.id, { value: e.target.value })}
+                  className="min-w-0 flex-1 truncate rounded-md bg-transparent px-1 -mx-1 text-right font-mono text-[12.5px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+                />
+                {i.pinned && !isConfirming && (
+                  <Pin className="pointer-events-none size-3 shrink-0 text-muted-foreground/60" fill="currentColor" />
+                )}
+                <ItemActions revealed={tapped === i.id || isConfirming}>
+                  {isConfirming ? (
+                    <DeleteAction
+                      label="Delete detail"
+                      confirming
+                      onRequest={() => setConfirming(i.id)}
+                      onCancel={() => setConfirming(null)}
+                      onConfirm={() => {
+                        setConfirming(null);
+                        deleteInformation(widget.id, i.id);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <MiniAction
+                        label={i.pinned ? "Unpin detail" : "Pin detail"}
+                        onClick={() => toggleInformationPin(widget.id, i.id)}
+                      >
+                        <Pin className="size-3" />
+                      </MiniAction>
+                      <MiniAction
+                        label="Edit detail"
+                        onClick={() => valueRefs.current[i.id]?.focus()}
+                      >
+                        <Pencil className="size-3" />
+                      </MiniAction>
+                      <MiniAction
+                        label="Convert to sticky note"
+                        onClick={() => convertInformationToSticky(widget.id, i.id)}
+                      >
+                        <ArrowUpRight className="size-3" />
+                      </MiniAction>
+                      <DeleteAction
+                        label="Delete detail"
+                        confirming={false}
+                        onRequest={() => setConfirming(i.id)}
+                        onCancel={() => setConfirming(null)}
+                        onConfirm={() => deleteInformation(widget.id, i.id)}
+                      />
+                    </>
+                  )}
+                </ItemActions>
+              </li>
+            );
+          })}
+        </ul>
       )}
-      <dl className="divide-y divide-border/60 overflow-hidden rounded-xl bg-surface-2">
-        {visible.map((i) => (
-          <div key={i.id} className="flex items-baseline justify-between gap-3 px-3 py-1.5">
-            <dt className="label-xs shrink-0">{highlightText(i.label, searchQuery)}</dt>
-            <dd className="min-w-0 truncate text-right font-mono text-[12.5px]">
-              {highlightText(i.value, searchQuery)}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          addInformation(widget.id);
+        }}
+        className="label-xs hover:text-foreground"
+      >
+        + Add detail
+      </button>
     </div>
   );
 }

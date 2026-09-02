@@ -264,6 +264,7 @@ interface WorkspaceApi extends WorkspaceState {
   deleteInformation: (widgetId: string, itemId: string) => void;
   addInformation: (widgetId: string) => void;
   clearInformation: (widgetId: string) => void;
+  toggleInformationPin: (widgetId: string, itemId: string) => void;
   convertInformationToSticky: (widgetId: string, itemId?: string) => void;
   convertNoteToSticky: (widgetId: string, itemId: string) => void;
   returnStickyToNotes: (stickyId: string) => void;
@@ -664,6 +665,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               content: {
                 ...w.content,
                 items: [...w.content.items, { id: uid(), label: "", value: "" }],
+              },
+            };
+          }),
+        ),
+      toggleInformationPin: (widgetId, itemId) =>
+        patchWidgets((ws) =>
+          ws.map((w) => {
+            if (w.id !== widgetId || w.content.kind !== "information") return w;
+            return {
+              ...w,
+              content: {
+                ...w.content,
+                items: w.content.items.map((i) => (i.id === itemId ? { ...i, pinned: !i.pinned } : i)),
               },
             };
           }),

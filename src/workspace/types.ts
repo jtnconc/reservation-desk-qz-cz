@@ -89,6 +89,8 @@ export interface InformationItem {
   id: string;
   label: string;
   value: string;
+  /** pinned rows render at the top of the INFORMATION widget */
+  pinned?: boolean;
 }
 
 export interface NoteRefItem {

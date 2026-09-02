@@ -89,33 +89,42 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
     logoH = 18;
   }
 
-  // Right-aligned header block: lower the date slightly, then stack contact details
-  // so the final address baseline lines up with the bottom edge of the logo.
+  // Right-aligned header block: a tight vertical stack (date → address) anchored
+  // to the bottom of the logo so the whole cluster sits low, close to the divider.
   const rightBlockWidth = 260;
-  const lineHeight = 10;
   const logoBottom = y + logoH;
-  const dateY = y + 12;
-  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(60, 64, 74);
-  doc.text(formatDate(quote.issueDate, quote.language), W - M, dateY, { align: "right" });
 
+  // Measure the address at its own font size before positioning the cluster.
   const headerAddress = (quote.hotelInfo ?? "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .join("  ·  ");
+  doc.setFont("helvetica", "normal").setFontSize(8.5);
+  const addressLines = headerAddress ? doc.splitTextToSize(headerAddress, rightBlockWidth) : [];
+
+  // Tight spacing: minimal baseline-to-baseline gaps between the date and the
+  // address lines.
+  const addrLineHeight = 9;
+  const dateToAddrGap = 10;
+
+  // Anchor the last address baseline to the bottom edge of the logo.
+  const addressBottom = logoBottom;
+  const addressTop = addressBottom - Math.max(0, addressLines.length - 1) * addrLineHeight;
+  const dateY = addressLines.length ? addressTop - dateToAddrGap : logoBottom;
+
+  doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(60, 64, 74);
+  doc.text(formatDate(quote.issueDate, quote.language), W - M, dateY, { align: "right" });
+
   let rightBlockBottom = dateY;
-  if (headerAddress) {
+  if (addressLines.length) {
     doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(115, 120, 132);
-    const addressLines = doc.splitTextToSize(headerAddress, rightBlockWidth);
-    // Keep the address tight to the date: place it just below the date baseline
-    // instead of stretching it down to align with the logo bottom.
-    const addressY = dateY + 11;
-    doc.text(addressLines, W - M, addressY, { align: "right" });
-    rightBlockBottom = addressY + (addressLines.length - 1) * lineHeight;
+    doc.text(addressLines, W - M, addressTop, { align: "right" });
+    rightBlockBottom = addressBottom;
   }
 
-  // Place the divider below whichever side of the header is taller.
-  y = Math.max(logoBottom, rightBlockBottom) + 12;
+  // Pull the divider up close beneath the header cluster.
+  y = Math.max(logoBottom, rightBlockBottom) + 6;
   doc.setDrawColor(...mix(brand, 0.35)).setLineWidth(1).line(M, y + 8, W - M, y + 8);
   doc.setLineWidth(0.5);
   y += 8 + 52;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Lock, Unlock } from "lucide-react";
+import { Lock, Unlock, Undo2 } from "lucide-react";
 import type { WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,8 @@ export function SizeControl({
   onChange,
   locked = false,
   onToggleLock,
+  onReturn,
+  returnLabel = "Return note to Notes list",
 }: {
   value: WidgetSize;
   onChange: (size: WidgetSize) => void;
@@ -35,6 +37,10 @@ export function SizeControl({
   locked?: boolean;
   /** shown as an extra option inside the expanded popover, after the size glyphs */
   onToggleLock?: () => void;
+  /** shown as an extra option that converts a standalone sticky note back into its source list item */
+  onReturn?: (() => void) | undefined;
+  /** accessible label/title for the return action, tailored to the source list */
+  returnLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -96,6 +102,24 @@ export function SizeControl({
                 )}
               >
                 {locked ? <Lock className="size-[11px]" /> : <Unlock className="size-[11px]" />}
+              </button>
+            </>
+          ) : null}
+          {onReturn ? (
+            <>
+              <span className="h-3 w-px bg-border" aria-hidden="true" />
+              <button
+                type="button"
+                aria-label={returnLabel}
+                title={returnLabel}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReturn();
+                  setOpen(false);
+                }}
+                className="flex size-[18px] items-center justify-center rounded-[5px] text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Undo2 className="size-[11px]" />
               </button>
             </>
           ) : null}

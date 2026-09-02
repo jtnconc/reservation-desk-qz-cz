@@ -3,8 +3,8 @@ import { Plus } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { Widget, WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
-import { todayISO } from "@/lib/quote-model";
 import { isTaskDueToday } from "@/lib/task-schedule";
+import { isReminderAlertActive } from "@/lib/reminder-alert";
 import { WidgetContent } from "./WidgetContent";
 import { SizeControl } from "./SizeControl";
 import { accentVar, tintVar } from "./AccentControl";
@@ -26,9 +26,9 @@ const cardHeight = (h: number) => h * ROW_UNIT + (h - 1) * ROW_GAP;
  * a small colored dot on its minimized pill, even while collapsed. */
 function dueBadgeColor(w: Widget): string | null {
   if (w.content.kind === "reminders") {
-    const today = todayISO();
     const due = w.content.items.some(
-      (r) => (r.status ?? (r.done ? "completed" : "active")) === "active" && r.date === today,
+      (r) =>
+        (r.status ?? (r.done ? "completed" : "active")) === "active" && isReminderAlertActive(r),
     );
     return due ? accentVar("orange") : null;
   }
@@ -92,6 +92,14 @@ export function WidgetGrid() {
     const t = setTimeout(() => setSettling(null), 340);
     return () => clearTimeout(t);
   }, [settling]);
+
+  // Re-render every 30s so the reminder "due" badge appears the instant the
+  // current time crosses each reminder's configured alert threshold.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Auto-clear the temporary "+n" notification badges.
   const pulseIds = Object.keys(pulses);

@@ -52,6 +52,9 @@ export interface ReminderItem {
   date: string;
   /** 24h time (HH:MM) */
   time?: string;
+  /** Minutes before the scheduled date/time to surface the alert (0 = at
+   * time of event). Defaults to 15 when unset. */
+  notifyMinutesBefore?: number;
   status?: ItemStatus;
   done?: boolean;
 }

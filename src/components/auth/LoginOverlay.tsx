@@ -111,11 +111,11 @@ export function LoginOverlay() {
           <h1 className="text-lg font-semibold text-foreground">
             {mode === "login" ? "Welcome back" : "Set up your PIN"}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === "login"
-              ? "Enter your username and 6-digit PIN to unlock the desk."
-              : "Choose a username and a 6-digit PIN to protect this desk."}
-          </p>
+          {mode === "setup" && (
+            <p className="text-sm text-muted-foreground">
+              Choose a username and a 6-digit PIN to protect this desk.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
@@ -138,7 +138,7 @@ export function LoginOverlay() {
 
           <div className="flex flex-col items-center gap-2">
             <Label htmlFor="auth-pin" className="self-start">
-              {mode === "login" ? "6-digit PIN" : "New 6-digit PIN"}
+              {mode === "login" ? "PIN" : "New PIN"}
             </Label>
             <PinInput
               id="auth-pin"

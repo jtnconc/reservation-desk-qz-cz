@@ -123,9 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const valid = await verifySecret(pin, record.salt, record.hash);
       if (!valid) {
-        const failedAttempts = attempt.lockUntil && attempt.lockUntil <= now
-          ? 1
-          : attempt.failedAttempts + 1;
+        const failedAttempts =
+          attempt.lockUntil && attempt.lockUntil <= now ? 1 : attempt.failedAttempts + 1;
         const lockUntil = failedAttempts >= MAX_ATTEMPTS ? now + LOCKOUT_MS : null;
         setLockInfo(username, { failedAttempts: lockUntil ? 0 : failedAttempts, lockUntil });
         if (lockUntil) return { ok: false, reason: "locked", lockUntil };
@@ -144,28 +143,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [getLockInfo, setLockInfo],
   );
 
-  const setupPin = useCallback(async (usernameRaw: string, pin: string): Promise<SetupResult> => {
-    const username = normalize(usernameRaw);
-    if (!username || !/^\d{6}$/.test(pin)) {
-      return { ok: false, reason: "invalid" };
-    }
-    const credentials = readJson<CredentialStore>(CREDENTIALS_KEY, localStorage, {});
-    if (credentials[username]) {
-      return { ok: false, reason: "exists" };
-    }
-    const { salt, hash } = await hashSecret(pin);
-    credentials[username] = {
-      username: usernameRaw.trim(),
-      salt,
-      hash,
-      createdAt: new Date().toISOString(),
-    };
-    writeJson(CREDENTIALS_KEY, localStorage, credentials);
-    setLockInfo(username, { failedAttempts: 0, lockUntil: null });
-    sessionStorage.setItem(SESSION_KEY, usernameRaw.trim());
-    setState((s) => ({ ...s, username: usernameRaw.trim(), hasAnyAccount: true }));
-    return { ok: true };
-  }, [setLockInfo]);
+  const setupPin = useCallback(
+    async (usernameRaw: string, pin: string): Promise<SetupResult> => {
+      const username = normalize(usernameRaw);
+      if (!username || !/^\d{6}$/.test(pin)) {
+        return { ok: false, reason: "invalid" };
+      }
+      const credentials = readJson<CredentialStore>(CREDENTIALS_KEY, localStorage, {});
+      if (credentials[username]) {
+        return { ok: false, reason: "exists" };
+      }
+      const { salt, hash } = await hashSecret(pin);
+      credentials[username] = {
+        username: usernameRaw.trim(),
+        salt,
+        hash,
+        createdAt: new Date().toISOString(),
+      };
+      writeJson(CREDENTIALS_KEY, localStorage, credentials);
+      setLockInfo(username, { failedAttempts: 0, lockUntil: null });
+      sessionStorage.setItem(SESSION_KEY, usernameRaw.trim());
+      setState((s) => ({ ...s, username: usernameRaw.trim(), hasAnyAccount: true }));
+      return { ok: true };
+    },
+    [setLockInfo],
+  );
 
   const lock = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);

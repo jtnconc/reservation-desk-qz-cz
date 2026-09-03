@@ -110,9 +110,7 @@ export function WorkspaceHeader({
 
     const docs = [quote, ...quoteHistory.filter((h) => h.id !== quote.id)];
     for (const doc of docs) {
-      const hay = [doc.recipient, doc.company, doc.guest, quoteNumber(doc)]
-        .join(" ")
-        .toLowerCase();
+      const hay = [doc.recipient, doc.company, doc.guest, quoteNumber(doc)].join(" ").toLowerCase();
       if (hay.includes(q))
         out.push({
           key: `quote:${doc.id}`,

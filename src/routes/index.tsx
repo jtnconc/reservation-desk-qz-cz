@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { WorkspaceProvider, useWorkspace } from "@/workspace/store";
+import { AuthProvider } from "@/auth/store";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
 import { WidgetGrid } from "@/components/workspace/WidgetGrid";
 import { NotesTool } from "@/components/tools/NotesTool";
@@ -33,19 +35,23 @@ function WorkspacePage() {
   const [quoteHistory, setQuoteHistory] = useState(false);
 
   return (
-    <WorkspaceProvider>
-      <div className="flex min-h-screen w-full flex-col bg-background">
-        <WorkspaceHeader
-          quotePreview={quotePreview}
-          onToggleQuotePreview={() => setQuotePreview((v) => !v)}
-          quoteHistoryOpen={quoteHistory}
-          onToggleQuoteHistory={() => setQuoteHistory((v) => !v)}
-        />
-        <main className="mx-auto flex w-full max-w-[1240px] min-h-0 flex-1 flex-col px-5 pb-3 pt-0">
-          <Workspace quotePreview={quotePreview} quoteHistory={quoteHistory} />
-        </main>
-      </div>
-    </WorkspaceProvider>
+    <AuthProvider>
+      <AuthGuard>
+        <WorkspaceProvider>
+          <div className="flex min-h-screen w-full flex-col bg-background">
+            <WorkspaceHeader
+              quotePreview={quotePreview}
+              onToggleQuotePreview={() => setQuotePreview((v) => !v)}
+              quoteHistoryOpen={quoteHistory}
+              onToggleQuoteHistory={() => setQuoteHistory((v) => !v)}
+            />
+            <main className="mx-auto flex w-full max-w-[1240px] min-h-0 flex-1 flex-col px-5 pb-3 pt-0">
+              <Workspace quotePreview={quotePreview} quoteHistory={quoteHistory} />
+            </main>
+          </div>
+        </WorkspaceProvider>
+      </AuthGuard>
+    </AuthProvider>
   );
 }
 

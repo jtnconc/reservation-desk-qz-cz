@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Search, X } from "lucide-react";
+import { FileText, Lock, Search, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
+import { useAuth } from "@/auth/store";
 import { ToolSwitcher } from "@/components/workspace/ToolSwitcher";
 import { NotesToolbar } from "@/components/tools/NotesToolbar";
 import { QuoteToolbar } from "@/components/tools/QuoteToolbar";
@@ -45,6 +46,7 @@ export function WorkspaceHeader({
     loadQuote,
     setSearchQuery,
   } = useWorkspace();
+  const { lock } = useAuth();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
@@ -142,9 +144,19 @@ export function WorkspaceHeader({
           )}
         </div>
 
+        <button
+          type="button"
+          onClick={lock}
+          title="Lock app"
+          aria-label="Lock app"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-desk transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Lock className="size-[17px]" />
+        </button>
+
         <div
           ref={searchWrapRef}
-          className="relative z-50 ml-auto flex shrink-0 items-center overflow-visible"
+          className="relative z-50 flex shrink-0 items-center overflow-visible"
         >
           <div className="relative flex items-center overflow-visible">
             <div

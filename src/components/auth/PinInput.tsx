@@ -43,6 +43,7 @@ export function PinInput({
           <InputOTPSlot
             key={i}
             index={i}
+            mask
             className={cn(
               "h-12 w-10 rounded-xl border border-input bg-surface text-lg font-semibold text-foreground shadow-sm transition-all",
               "first:rounded-l-xl last:rounded-r-xl",

@@ -106,7 +106,7 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
   // Tight spacing: minimal baseline-to-baseline gaps between the date and the
   // address lines.
   const addrLineHeight = 9;
-  const dateToAddrGap = 10;
+  const dateToAddrGap = 18;
 
   // Anchor the last address baseline to the bottom edge of the logo.
   const addressBottom = logoBottom;
@@ -137,9 +137,9 @@ export function buildQuotePdf(quote: QuoteDoc, hotel: HotelTemplate, logoImage?:
   doc.text(`${greetingLabel} ${quote.recipient || ""}`.trim(), M, y);
   y += 15;
   if (quote.company.trim()) {
-    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...GRAY_COMPANY);
+    doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(22, 26, 34);
     doc.text(quote.company, M, y);
-    y += 15;
+    y += 17;
   }
   y += 10;
 

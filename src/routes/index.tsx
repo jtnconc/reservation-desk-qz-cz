@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Reservation Workspace — Hotel reservation desk" },
+      { title: "Reservation Workspace" },
       {
         name: "description",
         content:

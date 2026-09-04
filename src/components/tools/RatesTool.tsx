@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { calculateSeniorRate, money } from "@/lib/rates";
 import { todayISO } from "@/lib/quote-model";
 import { DateRangeField } from "@/components/common/DateRangeField";
@@ -44,7 +45,7 @@ export function RatesTool() {
   const [regularRate, setRegularRate] = useState(0);
   const [paxExtra, setPaxExtra] = useState(0);
   const [paxExtraRate] = useState(25);
-
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const result = useMemo(
     () =>
@@ -58,6 +59,21 @@ export function RatesTool() {
       }),
     [arrival, departure, regularRate, paxExtra, paxExtraRate],
   );
+
+  const groupedRates = useMemo(() => {
+    const groups = new Map<string, { count: number; total: number }>();
+    for (const n of result.nights) {
+      const g = groups.get(n.ruleLabel) ?? { count: 0, total: 0 };
+      g.count += 1;
+      g.total += n.rate;
+      groups.set(n.ruleLabel, g);
+    }
+    return Array.from(groups.entries()).map(([label, g]) => ({
+      label,
+      count: g.count,
+      avg: g.count ? g.total / g.count : 0,
+    }));
+  }, [result.nights]);
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -110,51 +126,6 @@ export function RatesTool() {
         </Field>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-border">
-        <table className="w-full border-collapse text-left">
-          <thead className="sticky top-0 bg-surface-2">
-            <tr>
-              {["Date", "Day", "Discount", "Rate"].map((h) => (
-                <th key={h} className="label-xs px-4 py-2.5">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {result.nights.map((n) => {
-              const isWeekday = n.ruleLabel.includes("Lun-Jue");
-              return (
-                <tr key={n.date} className="border-t border-border">
-                  <td className="px-4 py-2.5 font-mono text-[13px]">{n.date}</td>
-                  <td className="px-4 py-2.5 text-[13px]">{n.day}</td>
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-tight",
-                        isWeekday
-                          ? "bg-badge-weekday-bg text-badge-weekday-text"
-                          : "bg-badge-weekend-bg text-badge-weekend-text",
-                      )}
-                    >
-                      {n.ruleLabel}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-[13px]">{money(n.rate)}</td>
-                </tr>
-              );
-            })}
-            {result.nights.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-[13px] text-muted-foreground">
-                  Select an arrival and a later departure date.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: "Rate per night", value: money(result.avgPerNight), valueClass: "text-badge-weekday-text" },
@@ -169,6 +140,95 @@ export function RatesTool() {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border">
+        <button
+          type="button"
+          onClick={() => setShowBreakdown((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+        >
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-medium">
+              View daily breakdown ({result.nightCount} nights)
+            </span>
+            {!showBreakdown &&
+              groupedRates.map((g) => {
+                const isWeekday = g.label.includes("Lun-Jue");
+                return (
+                  <span
+                    key={g.label}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-tight",
+                      isWeekday
+                        ? "bg-badge-weekday-bg text-badge-weekday-text"
+                        : "bg-badge-weekend-bg text-badge-weekend-text",
+                    )}
+                  >
+                    {g.label} · {g.count}n avg {money(g.avg)}
+                  </span>
+                );
+              })}
+            {!showBreakdown && groupedRates.length === 0 && (
+              <span className="text-[13px] text-muted-foreground">
+                Select an arrival and a later departure date.
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              showBreakdown && "rotate-180",
+            )}
+          />
+        </button>
+
+        {showBreakdown && (
+          <div className="min-h-0 flex-1 overflow-auto border-t border-border">
+            <table className="w-full border-collapse text-left">
+              <thead className="sticky top-0 bg-surface-2">
+                <tr>
+                  {["Date", "Day", "Discount", "Rate"].map((h) => (
+                    <th key={h} className="label-xs px-4 py-2.5">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.nights.map((n) => {
+                  const isWeekday = n.ruleLabel.includes("Lun-Jue");
+                  return (
+                    <tr key={n.date} className="border-t border-border">
+                      <td className="px-4 py-2.5 font-mono text-[13px]">{n.date}</td>
+                      <td className="px-4 py-2.5 text-[13px]">{n.day}</td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-tight",
+                            isWeekday
+                              ? "bg-badge-weekday-bg text-badge-weekday-text"
+                              : "bg-badge-weekend-bg text-badge-weekend-text",
+                          )}
+                        >
+                          {n.ruleLabel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-[13px]">{money(n.rate)}</td>
+                    </tr>
+                  );
+                })}
+                {result.nights.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-[13px] text-muted-foreground">
+                      Select an arrival and a later departure date.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

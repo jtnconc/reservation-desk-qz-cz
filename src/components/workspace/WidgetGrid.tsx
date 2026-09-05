@@ -324,7 +324,7 @@ export function WidgetGrid() {
                 onTint={(t) => setWidgetTint(w.id, t)}
               />
             )}
-            <div className="@container min-h-0 flex-1 overflow-y-auto">
+            <div className="hover-scroll @container min-h-0 flex-1 overflow-y-auto">
               <WidgetContent widget={w} />
             </div>
           </section>

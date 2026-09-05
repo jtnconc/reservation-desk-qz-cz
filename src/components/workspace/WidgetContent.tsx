@@ -976,7 +976,7 @@ function StatsContent({ widget }: { widget: Widget }) {
           Calls finished from the Notes tool will appear here.
         </p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+        <div className="hover-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
           {rows.map((row) => {
             const style = PROPERTY_STYLES[row.code];
             return (

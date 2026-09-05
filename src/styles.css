@@ -154,6 +154,31 @@
   }
 }
 
+/* Card scroll areas: keep the track invisible at rest and fade a slim thumb
+   in only while the pointer is over (or focus is inside) the card. Narrow
+   cards then stay visually clean instead of showing a permanent scrollbar.
+   Higher specificity than the base `*` rules so it overrides them. */
+.hover-scroll {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 200ms var(--ease-desk);
+}
+.hover-scroll:hover,
+.hover-scroll:focus-within {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.hover-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  transition: background-color 200ms var(--ease-desk);
+}
+.hover-scroll:hover::-webkit-scrollbar-thumb,
+.hover-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+.hover-scroll:hover::-webkit-scrollbar-thumb:hover,
+.hover-scroll:focus-within::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
 @utility desk-panel {
   background-color: var(--surface);
   border: 1px solid var(--border);

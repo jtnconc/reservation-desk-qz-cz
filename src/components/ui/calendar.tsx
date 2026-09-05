@@ -30,7 +30,7 @@ function MonthYearCaption({
   onToggleView,
 }: {
   month: Date;
-  view: "months" | "years";
+  view: "days" | "months" | "years";
   onToggleView: (view: "days" | "months" | "years") => void;
 }) {
   return (
@@ -38,18 +38,95 @@ function MonthYearCaption({
       <button
         type="button"
         onClick={() => onToggleView(view === "months" ? "days" : "months")}
-        className="select-none rounded-md px-2 py-1 text-sm font-medium capitalize transition-colors hover:bg-accent hover:text-accent-foreground"
+        aria-expanded={view === "months"}
+        className={cn(
+          "select-none rounded-full border border-transparent px-3 py-1 text-sm font-medium capitalize transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground",
+          view === "months" && "border-primary/30 bg-primary/10 text-primary",
+        )}
       >
         {month.toLocaleString("es", { month: "long" })}
       </button>
       <button
         type="button"
         onClick={() => onToggleView(view === "years" ? "days" : "years")}
-        className="select-none rounded-md px-2 py-1 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+        aria-expanded={view === "years"}
+        className={cn(
+          "select-none rounded-full border border-transparent px-3 py-1 text-sm font-medium transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground",
+          view === "years" && "border-primary/30 bg-primary/10 text-primary",
+        )}
       >
         {month.getFullYear()}
       </button>
     </div>
+  );
+}
+
+function MonthYearPickerPopup({
+  month,
+  view,
+  onClose,
+  onPickMonth,
+  onPickYear,
+}: {
+  month: Date;
+  view: "months" | "years";
+  onClose: () => void;
+  onPickMonth: (index: number) => void;
+  onPickYear: (year: number) => void;
+}) {
+  const startYear = month.getFullYear() - Math.floor(YEAR_GRID_SPAN / 2);
+  const years = Array.from({ length: YEAR_GRID_SPAN }, (_, i) => startYear + i);
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Cerrar selector"
+        onClick={onClose}
+        className="absolute inset-0 z-40 cursor-default rounded-xl bg-background"
+        tabIndex={-1}
+      />
+      <div
+        className="absolute inset-x-0 top-11 z-50 mx-auto w-56 rounded-2xl border border-border bg-card p-2 shadow-xl"
+        role="dialog"
+      >
+        {view === "months" ? (
+          <div className="grid grid-cols-3 gap-1.5">
+            {MONTH_LABELS_ES.map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onPickMonth(index)}
+                className={cn(
+                  "select-none rounded-xl px-2 py-2 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                  index === month.getMonth() &&
+                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid max-h-48 grid-cols-3 gap-1.5 overflow-y-auto">
+            {years.map((year) => (
+              <button
+                key={year}
+                type="button"
+                onClick={() => onPickYear(year)}
+                className={cn(
+                  "select-none rounded-xl px-2 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                  year === month.getFullYear() &&
+                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                )}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -90,54 +167,18 @@ function Calendar({
     setView("months");
   };
 
-  if (view !== "days") {
-    const startYear = currentMonth.getFullYear() - Math.floor(YEAR_GRID_SPAN / 2);
-    const years = Array.from({ length: YEAR_GRID_SPAN }, (_, i) => startYear + i);
-
-    return (
-      <div className={cn("bg-background p-3 [--cell-size:2rem]", className)}>
-        <MonthYearCaption month={currentMonth} view={view} onToggleView={setView} />
-        {view === "months" ? (
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {MONTH_LABELS_ES.map((label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => pickMonth(index)}
-                className={cn(
-                  "select-none rounded-md px-2 py-2 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-accent hover:text-accent-foreground",
-                  index === currentMonth.getMonth() &&
-                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-3 grid max-h-56 grid-cols-3 gap-2 overflow-y-auto">
-            {years.map((year) => (
-              <button
-                key={year}
-                type="button"
-                onClick={() => pickYear(year)}
-                className={cn(
-                  "select-none rounded-md px-2 py-2 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground",
-                  year === currentMonth.getFullYear() &&
-                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                )}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <DayPicker
+    <div className="relative">
+      {view !== "days" && (
+        <MonthYearPickerPopup
+          month={currentMonth}
+          view={view}
+          onClose={() => setView("days")}
+          onPickMonth={pickMonth}
+          onPickYear={pickYear}
+        />
+      )}
+      <DayPicker
       showOutsideDays={showOutsideDays}
       month={currentMonth}
       onMonthChange={handleMonthChange}
@@ -252,7 +293,8 @@ function Calendar({
         ...components,
       }}
       {...props}
-    />
+      />
+    </div>
   );
 }
 

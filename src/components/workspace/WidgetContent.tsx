@@ -510,7 +510,7 @@ function RemindersContent({ widget }: { widget: Widget }) {
                 formatReminderWhen(when) && (
                   <p
                     className="truncate font-mono text-[11px]"
-                    style={{ color: "rgba(239, 68, 68, 0.75)" }}
+                    style={{ color: `color-mix(in srgb, ${accent} 70%, var(--muted-foreground))` }}
                   >
                     {formatReminderWhen(when)}
                   </p>

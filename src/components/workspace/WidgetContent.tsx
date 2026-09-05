@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { ArrowUpRight, Check, Clock, Pencil, Pin, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
@@ -217,7 +218,16 @@ function TasksContent({ widget }: { widget: Widget }) {
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   if (widget.content.kind !== "tasks") return null;
-  const items = widget.content.items.filter((t) => matchesQuery(t.title, searchQuery));
+  const items = widget.content.items
+    .filter((t) => matchesQuery(t.title, searchQuery))
+    .map((t, index) => ({ t, index }))
+    .sort((a, b) => {
+      const aDone = taskState(a.t.status) === "completed";
+      const bDone = taskState(b.t.status) === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(({ t }) => t);
   const accent = accentVar(widget.accent);
 
   return (
@@ -229,8 +239,10 @@ function TasksContent({ widget }: { widget: Widget }) {
         const recurs = !!t.recurrence && t.recurrence !== "none";
         const dueToday = !done && isTaskDueToday(t);
         return (
-          <li
+          <motion.li
             key={t.id}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             className="group relative flex min-h-6 items-start gap-2 pr-1"
             onClick={() => setTapped((v) => (v === t.id ? null : t.id))}
           >
@@ -312,7 +324,7 @@ function TasksContent({ widget }: { widget: Widget }) {
                 </>
               )}
             </ItemActions>
-          </li>
+          </motion.li>
         );
       })}
     </ul>
@@ -336,7 +348,16 @@ function RemindersContent({ widget }: { widget: Widget }) {
 
   if (widget.content.kind !== "reminders") return null;
   const accent = accentVar(widget.accent);
-  const items = widget.content.items.filter((r) => matchesQuery(r.title, searchQuery));
+  const items = widget.content.items
+    .filter((r) => matchesQuery(r.title, searchQuery))
+    .map((r, index) => ({ r, index }))
+    .sort((a, b) => {
+      const aDone = reminderState(a.r) === "completed";
+      const bDone = reminderState(b.r) === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(({ r }) => r);
 
   return (
     <ul className="space-y-2.5">
@@ -348,14 +369,16 @@ function RemindersContent({ widget }: { widget: Widget }) {
         const isConfirming = confirming === r.id;
         const isAlertActive = !done && isReminderAlertActive(r);
         return (
-          <li
+          <motion.li
             key={r.id}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             className="group relative flex min-h-7 gap-2.5 rounded-lg pr-1 pl-1.5 transition-colors"
-            style={
-              isAlertActive
-                ? { backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)` }
-                : undefined
-            }
+            style={{
+              backgroundColor: isAlertActive
+                ? `color-mix(in srgb, ${accent} 12%, transparent)`
+                : "transparent",
+            }}
             onClick={() => setTapped((v) => (v === r.id ? null : r.id))}
           >
             <button
@@ -503,7 +526,7 @@ function RemindersContent({ widget }: { widget: Widget }) {
                 </>
               )}
             </ItemActions>
-          </li>
+          </motion.li>
         );
       })}
     </ul>

@@ -4,7 +4,7 @@ import type { Widget, WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
 import { isTaskDueToday } from "@/lib/task-schedule";
 import { isReminderAlertActive } from "@/lib/reminder-alert";
-import { WidgetContent } from "./WidgetContent";
+import { WidgetContent, widgetSupportsFilters } from "./WidgetContent";
 import { SizeControl } from "./SizeControl";
 import { accentVar, tintVar } from "./AccentControl";
 import { WidgetCustomizer } from "./WidgetCustomizer";
@@ -73,6 +73,8 @@ export function WidgetGrid() {
   const [customizing, setCustomizing] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [lockedHeights, setLockedHeights] = useState<Record<string, number>>({});
+  const [filtersOpenId, setFiltersOpenId] = useState<string | null>(null);
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const dragged = useRef<string | null>(null);
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -83,6 +85,16 @@ export function WidgetGrid() {
       setLockedHeights((prev) => ({ ...prev, [id]: el.getBoundingClientRect().height }));
     }
     toggleWidgetHeightLock(id);
+  };
+
+  const handleToggleFilterValue = (widgetId: string, value: string) => {
+    setSelectedFilters((prev) => {
+      const current = prev[widgetId] ?? [];
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      return { ...prev, [widgetId]: next };
+    });
   };
 
   useEffect(() => {
@@ -255,6 +267,25 @@ export function WidgetGrid() {
                   >
                     <Icon className="size-[15px]" style={{ color: accent }} />
                   </button>
+                ) : widgetSupportsFilters(w.content.kind) ? (
+                  <button
+                    type="button"
+                    aria-label="Toggle filters"
+                    aria-pressed={filtersOpenId === w.id}
+                    title="Filter"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFiltersOpenId((v) => (v === w.id ? null : w.id));
+                    }}
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-secondary",
+                      filtersOpenId === w.id && "bg-secondary",
+                    )}
+                  >
+                    <Icon className="size-[15px]" style={{ color: accent }} />
+                  </button>
                 ) : (
                   <span className="flex size-5 shrink-0 items-center justify-center">
                     <Icon className="size-[15px]" style={{ color: accent }} />
@@ -324,8 +355,13 @@ export function WidgetGrid() {
                 onTint={(t) => setWidgetTint(w.id, t)}
               />
             )}
-            <div className="@container min-h-0 flex-1 overflow-y-auto">
-              <WidgetContent widget={w} />
+            <div className="hover-scroll @container min-h-0 flex-1 overflow-y-auto">
+              <WidgetContent
+                widget={w}
+                filtersOpen={filtersOpenId === w.id}
+                selectedFilters={selectedFilters[w.id] ?? []}
+                onToggleFilter={(value) => handleToggleFilterValue(w.id, value)}
+              />
             </div>
           </section>
         );

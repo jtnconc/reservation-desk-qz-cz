@@ -33,6 +33,11 @@ import type {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+/** How long the tab must stay hidden (minimized / switched away) before
+ * returning to the app snaps the active view back to the Notes tool. Adjust
+ * this single constant to change the inactivity window. */
+const INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000;
+
 const DEFAULT_NOTE = "";
 
 const sizeOf = (w: 1 | 2, h: 1 | 2): WidgetSize => `${w}x${h}` as WidgetSize;
@@ -382,6 +387,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [state]);
+
+  // Return to the Notes tool after a prolonged absence. We track the moment the
+  // tab becomes hidden (minimize / switch away) via `visibilitychange` — not
+  // blur/focus, which fire far too eagerly — and, when it becomes visible
+  // again, snap back to Notes only if more than INACTIVITY_THRESHOLD_MS elapsed.
+  useEffect(() => {
+    let hiddenAt: number | null = null;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt !== null ? Date.now() - hiddenAt : 0;
+      hiddenAt = null;
+      if (away >= INACTIVITY_THRESHOLD_MS) {
+        setState((s) => ({
+          ...s,
+          mode: "tool",
+          activeTool: "notes",
+          activeWidget: null,
+          widgets: s.widgets.map((w) => ({ ...w, display: "minimized" })),
+        }));
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   const patchWidgets = useCallback(
     (fn: (w: Widget[]) => Widget[]) => setState((s) => ({ ...s, widgets: fn(s.widgets) })),

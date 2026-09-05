@@ -81,9 +81,8 @@ export function DateRangeField({
   renderField,
 }: DateRangeFieldProps) {
   const [open, setOpen] = useState(false);
+  /** which field the calendar is currently driving */
   const [focus, setFocus] = useState<"start" | "end">("start");
-  /** "start" = next click begins a new range, "end" = next click closes it */
-  const [phase, setPhase] = useState<"start" | "end">("start");
   const [draft, setDraft] = useState<DateRange | undefined>(undefined);
 
   const selected: DateRange | undefined =
@@ -92,23 +91,43 @@ export function DateRangeField({
 
   const openWith = (which: "start" | "end") => {
     setFocus(which);
-    setPhase("start");
-    setDraft(undefined);
+    setDraft(
+      parseISODate(start)
+        ? { from: parseISODate(start)!, to: parseISODate(end) }
+        : undefined,
+    );
     setOpen(true);
   };
 
+  /**
+   * Arrival and departure can each be picked independently:
+   * - focus "start" edits the arrival date without discarding the current departure
+   *   (unless the new arrival lands after it, in which case departure is cleared).
+   * - focus "end" edits the departure date directly, without needing to re-pick arrival.
+   *   Picking a departure before the current arrival shifts arrival to that day instead
+   *   of resetting the whole range.
+   */
   const handleDayClick = (day: Date) => {
     const iso = toISO(day);
-    if (phase === "start" || !draft?.from || day < draft.from) {
+
+    if (focus === "start") {
+      const keepEnd = draft?.to && draft.to >= day ? draft.to : undefined;
+      setDraft({ from: day, to: keepEnd });
+      onChange({ start: iso, end: keepEnd ? toISO(keepEnd) : undefined });
+      if (!keepEnd) setFocus("end");
+      return;
+    }
+
+    // focus === "end"
+    const arrivalDate = draft?.from ?? parseISODate(start);
+    if (!arrivalDate || day < arrivalDate) {
+      // selected departure precedes arrival: shift arrival here and keep picking departure
       setDraft({ from: day, to: undefined });
-      setPhase("end");
-      setFocus("end");
       onChange({ start: iso, end: undefined });
       return;
     }
-    setDraft({ from: draft.from, to: day });
-    setPhase("start");
-    onChange({ start: toISO(draft.from), end: iso });
+    setDraft({ from: arrivalDate, to: day });
+    onChange({ start: toISO(arrivalDate), end: iso });
     setOpen(false);
   };
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { ArrowUpRight, Check, Clock, Pencil, Pin, Plus, Repeat, Trash2, X } from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
 import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
@@ -121,6 +122,25 @@ function splitWhen(r: ReminderItem) {
   return { date: d ?? "", time: r.time ?? t ?? "" };
 }
 
+/** Formats a reminder's date/time as "MM/DD/YY, h:mm A" (e.g. "08/05/26, 3:00 PM"). */
+function formatReminderWhen(when: { date: string; time: string }) {
+  if (!when.date) return null;
+  const [y, m, d] = when.date.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  let result = `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${String(y).slice(-2)}`;
+
+  if (when.time) {
+    const [hh, mm] = when.time.split(":").map(Number);
+    if (!Number.isNaN(hh) && !Number.isNaN(mm)) {
+      const period = hh >= 12 ? "PM" : "AM";
+      const h12 = hh % 12 === 0 ? 12 : hh % 12;
+      result += `, ${h12}:${String(mm).padStart(2, "0")} ${period}`;
+    }
+  }
+
+  return result;
+}
+
 const RECURRENCE_OPTIONS: Exclude<TaskItem["recurrence"], undefined>[] = [
   "none",
   "daily",
@@ -217,7 +237,16 @@ function TasksContent({ widget }: { widget: Widget }) {
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   if (widget.content.kind !== "tasks") return null;
-  const items = widget.content.items.filter((t) => matchesQuery(t.title, searchQuery));
+  const items = widget.content.items
+    .filter((t) => matchesQuery(t.title, searchQuery))
+    .map((t, index) => ({ t, index }))
+    .sort((a, b) => {
+      const aDone = taskState(a.t.status) === "completed";
+      const bDone = taskState(b.t.status) === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(({ t }) => t);
   const accent = accentVar(widget.accent);
 
   return (
@@ -229,8 +258,10 @@ function TasksContent({ widget }: { widget: Widget }) {
         const recurs = !!t.recurrence && t.recurrence !== "none";
         const dueToday = !done && isTaskDueToday(t);
         return (
-          <li
+          <motion.li
             key={t.id}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             className="group relative flex min-h-6 items-start gap-2 pr-1"
             onClick={() => setTapped((v) => (v === t.id ? null : t.id))}
           >
@@ -312,7 +343,7 @@ function TasksContent({ widget }: { widget: Widget }) {
                 </>
               )}
             </ItemActions>
-          </li>
+          </motion.li>
         );
       })}
     </ul>
@@ -336,7 +367,16 @@ function RemindersContent({ widget }: { widget: Widget }) {
 
   if (widget.content.kind !== "reminders") return null;
   const accent = accentVar(widget.accent);
-  const items = widget.content.items.filter((r) => matchesQuery(r.title, searchQuery));
+  const items = widget.content.items
+    .filter((r) => matchesQuery(r.title, searchQuery))
+    .map((r, index) => ({ r, index }))
+    .sort((a, b) => {
+      const aDone = reminderState(a.r) === "completed";
+      const bDone = reminderState(b.r) === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(({ r }) => r);
 
   return (
     <ul className="space-y-2.5">
@@ -348,14 +388,16 @@ function RemindersContent({ widget }: { widget: Widget }) {
         const isConfirming = confirming === r.id;
         const isAlertActive = !done && isReminderAlertActive(r);
         return (
-          <li
+          <motion.li
             key={r.id}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             className="group relative flex min-h-7 gap-2.5 rounded-lg pr-1 pl-1.5 transition-colors"
-            style={
-              isAlertActive
-                ? { backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)` }
-                : undefined
-            }
+            style={{
+              backgroundColor: isAlertActive
+                ? `color-mix(in srgb, ${accent} 12%, transparent)`
+                : "transparent",
+            }}
             onClick={() => setTapped((v) => (v === r.id ? null : r.id))}
           >
             <button
@@ -465,9 +507,14 @@ function RemindersContent({ widget }: { widget: Widget }) {
                   </button>
                 </div>
               ) : (
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                  {[when.date, when.time].filter(Boolean).join(" ") || "No date"}
-                </p>
+                formatReminderWhen(when) && (
+                  <p
+                    className="truncate font-mono text-[11px]"
+                    style={{ color: `color-mix(in srgb, ${accent} 70%, var(--muted-foreground))` }}
+                  >
+                    {formatReminderWhen(when)}
+                  </p>
+                )
               )}
             </div>
 
@@ -503,7 +550,7 @@ function RemindersContent({ widget }: { widget: Widget }) {
                 </>
               )}
             </ItemActions>
-          </li>
+          </motion.li>
         );
       })}
     </ul>

@@ -923,9 +923,22 @@ const toggleItem = (itemId: string) => {
                 <p className="tabular-nums text-[10.5px] text-muted-foreground">
                   {quoteNumber(q)} · {formatDate(q.issueDate, q.language)}
                 </p>
-                <p className="mt-0.5 text-[12.5px] font-medium">{getHotel(q.hotelId).name}</p>
-                <p className="text-[11.5px] text-muted-foreground">
-                  {q.recipient || q.company} ·{" "}
+                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12.5px] font-semibold">
+                  <span className="truncate">
+                    {q.company || (lang === "es" ? "Sin empresa" : "No company")}
+                  </span>
+                  <span
+                    className="shrink-0 truncate rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      backgroundColor: `${getHotel(q.hotelId).accent}1a`,
+                      color: getHotel(q.hotelId).accent,
+                    }}
+                  >
+                    {getHotel(q.hotelId).name}
+                  </span>
+                </p>
+                <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+                  {q.recipient || (lang === "es" ? "Sin destinatario" : "No recipient")} ·{" "}
                   <span className="tabular-nums">{money(quoteTotals(q).total)}</span>
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">

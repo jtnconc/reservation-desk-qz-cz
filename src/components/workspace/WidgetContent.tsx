@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle,
+  AlarmClock,
   ArrowUpRight,
   Building2,
   CalendarClock,
@@ -58,7 +58,7 @@ const REMINDER_FILTERS: FilterChipOption[] = [
 ];
 
 const TASK_FILTERS: FilterChipOption[] = [
-  { value: "urgent", label: "Urgent", icon: AlertTriangle, accent: "red" },
+  { value: "urgent", label: "Urgent", icon: AlarmClock, accent: "red" },
   { value: "scheduled", label: "Scheduled", icon: CalendarClock, accent: "orange" },
   { value: "completed", label: "Completed", icon: CheckCircle2, accent: "green" },
 ];
@@ -314,8 +314,10 @@ function TasksContent({
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   if (widget.content.kind !== "tasks") return null;
+  const showCompleted = selectedFilters.includes("completed");
   const items = widget.content.items
     .filter((t) => matchesQuery(t.title, searchQuery))
+    .filter((t) => showCompleted || taskState(t.status) !== "completed")
     .filter(
       (t) =>
         selectedFilters.length === 0 ||
@@ -383,7 +385,7 @@ function TasksContent({
                   {highlightText(t.title, searchQuery)}
                 </span>
                 {urgent && (
-                  <AlertTriangle
+                  <AlarmClock
                     className="mt-0.5 size-3 shrink-0"
                     style={{ color: accentVar("red") }}
                     aria-label="Urgent"
@@ -435,7 +437,7 @@ function TasksContent({
                       })
                     }
                   >
-                    <AlertTriangle
+                    <AlarmClock
                       className="size-3"
                       style={t.priority === "urgent" ? { color: accentVar("red") } : undefined}
                     />
@@ -488,8 +490,10 @@ function RemindersContent({
 
   if (widget.content.kind !== "reminders") return null;
   const accent = accentVar(widget.accent);
+  const showCompleted = selectedFilters.includes("completed");
   const items = widget.content.items
     .filter((r) => matchesQuery(r.title, searchQuery))
+    .filter((r) => showCompleted || reminderState(r) !== "completed")
     .filter(
       (r) =>
         selectedFilters.length === 0 ||

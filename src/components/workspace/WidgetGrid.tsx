@@ -4,7 +4,6 @@ import type { Widget, WidgetSize } from "@/workspace/types";
 import { cn } from "@/lib/utils";
 import { isTaskDueToday } from "@/lib/task-schedule";
 import { isReminderAlertActive } from "@/lib/reminder-alert";
-import { ListFilter } from "lucide-react";
 import { WidgetContent, widgetSupportsFilters } from "./WidgetContent";
 import { SizeControl } from "./SizeControl";
 import { accentVar, tintVar } from "./AccentControl";
@@ -268,6 +267,25 @@ export function WidgetGrid() {
                   >
                     <Icon className="size-[15px]" style={{ color: accent }} />
                   </button>
+                ) : widgetSupportsFilters(w.content.kind) ? (
+                  <button
+                    type="button"
+                    aria-label="Toggle filters"
+                    aria-pressed={filtersOpenId === w.id}
+                    title="Filter"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFiltersOpenId((v) => (v === w.id ? null : w.id));
+                    }}
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-secondary",
+                      filtersOpenId === w.id && "bg-secondary",
+                    )}
+                  >
+                    <Icon className="size-[15px]" style={{ color: accent }} />
+                  </button>
                 ) : (
                   <span className="flex size-5 shrink-0 items-center justify-center">
                     <Icon className="size-[15px]" style={{ color: accent }} />
@@ -313,27 +331,6 @@ export function WidgetGrid() {
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {widgetSupportsFilters(w.content.kind) ? (
-                  <button
-                    type="button"
-                    aria-label="Toggle filters"
-                    aria-pressed={filtersOpenId === w.id}
-                    title="Filter"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onDragStart={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFiltersOpenId((v) => (v === w.id ? null : w.id));
-                    }}
-                    className={cn(
-                      "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-secondary",
-                      filtersOpenId === w.id && "bg-secondary",
-                      (selectedFilters[w.id]?.length ?? 0) > 0 && "text-primary",
-                    )}
-                  >
-                    <ListFilter className="size-[13px]" />
-                  </button>
-                ) : null}
                 <SizeControl
                   value={`${w.width}x${w.height}` as WidgetSize}
                   onChange={(s) => setWidgetSize(w.id, s)}

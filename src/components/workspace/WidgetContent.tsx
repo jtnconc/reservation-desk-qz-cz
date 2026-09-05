@@ -122,6 +122,25 @@ function splitWhen(r: ReminderItem) {
   return { date: d ?? "", time: r.time ?? t ?? "" };
 }
 
+/** Formats a reminder's date/time as "MM/DD/YY, h:mm A" (e.g. "08/05/26, 3:00 PM"). */
+function formatReminderWhen(when: { date: string; time: string }) {
+  if (!when.date) return null;
+  const [y, m, d] = when.date.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  let result = `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${String(y).slice(-2)}`;
+
+  if (when.time) {
+    const [hh, mm] = when.time.split(":").map(Number);
+    if (!Number.isNaN(hh) && !Number.isNaN(mm)) {
+      const period = hh >= 12 ? "PM" : "AM";
+      const h12 = hh % 12 === 0 ? 12 : hh % 12;
+      result += `, ${h12}:${String(mm).padStart(2, "0")} ${period}`;
+    }
+  }
+
+  return result;
+}
+
 const RECURRENCE_OPTIONS: Exclude<TaskItem["recurrence"], undefined>[] = [
   "none",
   "daily",
@@ -488,9 +507,14 @@ function RemindersContent({ widget }: { widget: Widget }) {
                   </button>
                 </div>
               ) : (
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                  {[when.date, when.time].filter(Boolean).join(" ") || "No date"}
-                </p>
+                formatReminderWhen(when) && (
+                  <p
+                    className="truncate font-mono text-[11px]"
+                    style={{ color: "rgba(239, 68, 68, 0.75)" }}
+                  >
+                    {formatReminderWhen(when)}
+                  </p>
+                )
               )}
             </div>
 

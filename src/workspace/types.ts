@@ -57,7 +57,12 @@ export interface ReminderItem {
   notifyMinutesBefore?: number;
   status?: ItemStatus;
   done?: boolean;
+  /** Marked important via the "Flag" quick action; drives the Flagged filter. */
+  flagged?: boolean;
 }
+
+/** Broad relationship bucket a contact belongs to; drives the Contacts filter chips. */
+export type ContactCategory = "hotel" | "agent" | "client";
 
 export interface ContactItem {
   id: string;
@@ -65,6 +70,8 @@ export interface ContactItem {
   email?: string;
   phone?: string;
   company?: string;
+  /** Defaults to "client" when unset. */
+  category?: ContactCategory;
 }
 
 /** How a task repeats. "none" is a plain, one-off task. */
@@ -86,6 +93,8 @@ export interface TaskItem {
   /** ISO date (YYYY-MM-DD) the task was last marked completed. Recurring
    * tasks whose `completedOn` isn't today automatically reset to active. */
   completedOn?: string;
+  /** Marked important via the "Mark urgent" quick action; drives the Urgent filter. */
+  priority?: "normal" | "urgent";
 }
 
 export interface InformationItem {

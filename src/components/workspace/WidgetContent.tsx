@@ -1,8 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Check, Clock, Pencil, Pin, Plus, Repeat, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Building2,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  Clock,
+  Flag,
+  Pencil,
+  Pin,
+  Plus,
+  Repeat,
+  Trash2,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 import { useWorkspace } from "@/workspace/store";
-import type { ItemStatus, NoteRefItem, ReminderItem, TaskItem, Widget } from "@/workspace/types";
+import type {
+  ContactCategory,
+  ContactItem,
+  ItemStatus,
+  NoteRefItem,
+  ReminderItem,
+  TaskItem,
+  Widget,
+} from "@/workspace/types";
 import { DateField } from "@/components/common/DateField";
 import { TimeField } from "@/components/common/TimeField";
 import { cn } from "@/lib/utils";
@@ -21,6 +46,48 @@ import {
 } from "@/components/ui/select";
 
 import { accentVar } from "./AccentControl";
+import { FilterChips, type FilterChipOption } from "./FilterChips";
+
+/** Filter chip definitions for each filterable widget kind — colors follow
+ * the brief's grouping (warm tones for Reminders/Tasks, cool for Contacts)
+ * while reusing the app's existing predefined accent palette. */
+const REMINDER_FILTERS: FilterChipOption[] = [
+  { value: "flagged", label: "Flagged", icon: Flag, accent: "red" },
+  { value: "scheduled", label: "Scheduled", icon: Clock, accent: "orange" },
+  { value: "completed", label: "Completed", icon: CheckCircle2, accent: "yellow" },
+];
+
+const TASK_FILTERS: FilterChipOption[] = [
+  { value: "urgent", label: "Urgent", icon: AlertTriangle, accent: "red" },
+  { value: "scheduled", label: "Scheduled", icon: CalendarClock, accent: "orange" },
+  { value: "completed", label: "Completed", icon: CheckCircle2, accent: "green" },
+];
+
+const CONTACT_FILTERS: FilterChipOption[] = [
+  { value: "hotel", label: "Hotel", icon: Building2, accent: "blue" },
+  { value: "agent", label: "Agents", icon: Users, accent: "purple" },
+  { value: "client", label: "Clients", icon: UserRound, accent: "neutral" },
+];
+
+/** Which quick filters a reminder currently satisfies (a reminder can match
+ * more than one, e.g. flagged AND scheduled — chips act as an OR union). */
+function reminderFilterValues(r: ReminderItem): string[] {
+  const values: string[] = [];
+  if (r.flagged) values.push("flagged");
+  if (reminderState(r) === "completed") values.push("completed");
+  else if (splitWhen(r).date) values.push("scheduled");
+  return values;
+}
+
+function taskFilterValues(t: TaskItem): string[] {
+  const values: string[] = [];
+  if (t.priority === "urgent") values.push("urgent");
+  if (taskState(t.status) === "completed") values.push("completed");
+  else if (t.date || t.time || (t.recurrence && t.recurrence !== "none")) values.push("scheduled");
+  return values;
+}
+
+const contactFilterValue = (p: ContactItem): string => p.category ?? "client";
 
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
@@ -231,7 +298,17 @@ function TaskSchedulePanel({
   );
 }
 
-function TasksContent({ widget }: { widget: Widget }) {
+function TasksContent({
+  widget,
+  filtersOpen,
+  selectedFilters,
+  onToggleFilter,
+}: {
+  widget: Widget;
+  filtersOpen: boolean;
+  selectedFilters: string[];
+  onToggleFilter: (value: string) => void;
+}) {
   const { toggleTask, updateTask, deleteTask, searchQuery } = useWorkspace();
   const [tapped, setTapped] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState<string | null>(null);
@@ -239,6 +316,11 @@ function TasksContent({ widget }: { widget: Widget }) {
   if (widget.content.kind !== "tasks") return null;
   const items = widget.content.items
     .filter((t) => matchesQuery(t.title, searchQuery))
+    .filter(
+      (t) =>
+        selectedFilters.length === 0 ||
+        taskFilterValues(t).some((v) => selectedFilters.includes(v)),
+    )
     .map((t, index) => ({ t, index }))
     .sort((a, b) => {
       const aDone = taskState(a.t.status) === "completed";
@@ -250,13 +332,21 @@ function TasksContent({ widget }: { widget: Widget }) {
   const accent = accentVar(widget.accent);
 
   return (
-    <ul className="space-y-2">
+    <>
+      <FilterChips
+        options={TASK_FILTERS}
+        selected={selectedFilters}
+        onToggle={onToggleFilter}
+        open={filtersOpen}
+      />
+      <ul className="space-y-2">
       {items.map((t) => {
         const done = taskState(t.status) === "completed";
         const isConfirming = confirming === t.id;
         const isScheduling = scheduling === t.id;
         const recurs = !!t.recurrence && t.recurrence !== "none";
         const dueToday = !done && isTaskDueToday(t);
+        const urgent = !done && t.priority === "urgent";
         return (
           <motion.li
             key={t.id}
@@ -292,6 +382,13 @@ function TasksContent({ widget }: { widget: Widget }) {
                 >
                   {highlightText(t.title, searchQuery)}
                 </span>
+                {urgent && (
+                  <AlertTriangle
+                    className="mt-0.5 size-3 shrink-0"
+                    style={{ color: accentVar("red") }}
+                    aria-label="Urgent"
+                  />
+                )}
                 {dueToday && (
                   <span
                     aria-hidden
@@ -330,6 +427,19 @@ function TasksContent({ widget }: { widget: Widget }) {
                 />
               ) : (
                 <>
+                  <MiniAction
+                    label={t.priority === "urgent" ? "Unmark urgent" : "Mark urgent"}
+                    onClick={() =>
+                      updateTask(widget.id, t.id, {
+                        priority: t.priority === "urgent" ? "normal" : "urgent",
+                      })
+                    }
+                  >
+                    <AlertTriangle
+                      className="size-3"
+                      style={t.priority === "urgent" ? { color: accentVar("red") } : undefined}
+                    />
+                  </MiniAction>
                   <MiniAction label="Repeat & schedule task" onClick={() => setScheduling(t.id)}>
                     <Repeat className="size-3" />
                   </MiniAction>
@@ -346,11 +456,22 @@ function TasksContent({ widget }: { widget: Widget }) {
           </motion.li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }
 
-function RemindersContent({ widget }: { widget: Widget }) {
+function RemindersContent({
+  widget,
+  filtersOpen,
+  selectedFilters,
+  onToggleFilter,
+}: {
+  widget: Widget;
+  filtersOpen: boolean;
+  selectedFilters: string[];
+  onToggleFilter: (value: string) => void;
+}) {
   const { updateReminder, setReminderStatus, deleteReminder, searchQuery } = useWorkspace();
   const [editing, setEditing] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
@@ -369,6 +490,11 @@ function RemindersContent({ widget }: { widget: Widget }) {
   const accent = accentVar(widget.accent);
   const items = widget.content.items
     .filter((r) => matchesQuery(r.title, searchQuery))
+    .filter(
+      (r) =>
+        selectedFilters.length === 0 ||
+        reminderFilterValues(r).some((v) => selectedFilters.includes(v)),
+    )
     .map((r, index) => ({ r, index }))
     .sort((a, b) => {
       const aDone = reminderState(a.r) === "completed";
@@ -379,7 +505,14 @@ function RemindersContent({ widget }: { widget: Widget }) {
     .map(({ r }) => r);
 
   return (
-    <ul className="space-y-2.5">
+    <>
+      <FilterChips
+        options={REMINDER_FILTERS}
+        selected={selectedFilters}
+        onToggle={onToggleFilter}
+        open={filtersOpen}
+      />
+      <ul className="space-y-2.5">
       {items.map((r) => {
         const done = reminderState(r) === "completed";
         const when = splitWhen(r);
@@ -447,6 +580,13 @@ function RemindersContent({ widget }: { widget: Widget }) {
                   >
                     {highlightText(r.title, searchQuery)}
                   </p>
+                  {r.flagged && (
+                    <Flag
+                      className="mt-0.5 size-3 shrink-0 fill-current"
+                      style={{ color: accentVar("red") }}
+                      aria-label="Flagged"
+                    />
+                  )}
                   {isAlertActive && (
                     <span
                       aria-hidden
@@ -534,6 +674,15 @@ function RemindersContent({ widget }: { widget: Widget }) {
                 />
               ) : (
                 <>
+                  <MiniAction
+                    label={r.flagged ? "Unflag reminder" : "Flag reminder"}
+                    onClick={() => updateReminder(widget.id, r.id, { flagged: !r.flagged })}
+                  >
+                    <Flag
+                      className={cn("size-3", r.flagged && "fill-current")}
+                      style={r.flagged ? { color: accentVar("red") } : undefined}
+                    />
+                  </MiniAction>
                   <MiniAction label="Edit reminder" onClick={() => setEditing(r.id)}>
                     <Pencil className="size-3" />
                   </MiniAction>
@@ -553,11 +702,22 @@ function RemindersContent({ widget }: { widget: Widget }) {
           </motion.li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }
 
-function ContactsContent({ widget }: { widget: Widget }) {
+function ContactsContent({
+  widget,
+  filtersOpen,
+  selectedFilters,
+  onToggleFilter,
+}: {
+  widget: Widget;
+  filtersOpen: boolean;
+  selectedFilters: string[];
+  onToggleFilter: (value: string) => void;
+}) {
   const { updateContact, deleteContact, searchQuery } = useWorkspace();
   const [editing, setEditing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -567,15 +727,31 @@ function ContactsContent({ widget }: { widget: Widget }) {
   const field =
     "w-full rounded-lg bg-surface px-2 py-1 text-[12px] outline-none focus:ring-1 focus:ring-ring";
 
-  const visible = widget.content.items.filter((p) =>
-    matchesQuery([p.name, p.company, p.email, p.phone].filter(Boolean).join(" "), searchQuery),
-  );
+  const visible = widget.content.items
+    .filter((p) =>
+      matchesQuery([p.name, p.company, p.email, p.phone].filter(Boolean).join(" "), searchQuery),
+    )
+    .filter(
+      (p) => selectedFilters.length === 0 || selectedFilters.includes(contactFilterValue(p)),
+    );
 
   return (
-    <ul className="grid grid-cols-1 gap-2.5 @[22rem]:grid-cols-2">
+    <>
+      <FilterChips
+        options={CONTACT_FILTERS}
+        selected={selectedFilters}
+        onToggle={onToggleFilter}
+        open={filtersOpen}
+      />
+      <ul className="grid grid-cols-1 gap-2.5 @[22rem]:grid-cols-2">
       {visible.map((p) => {
         const isEditing = editing === p.id;
         const isConfirming = confirming === p.id;
+        const category = contactFilterValue(p);
+        const CategoryIcon =
+          category === "hotel" ? Building2 : category === "agent" ? Users : UserRound;
+        const categoryAccent =
+          category === "hotel" ? "blue" : category === "agent" ? "purple" : "neutral";
         return (
           <li
             key={p.id}
@@ -603,6 +779,30 @@ function ContactsContent({ widget }: { widget: Widget }) {
                         className={field}
                       />
                     ))}
+                    <Select
+                      value={category}
+                      onValueChange={(v) =>
+                        updateContact(widget.id, p.id, { category: v as ContactCategory })
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="Category"
+                        className="h-auto w-full rounded-lg border-border bg-surface px-2 py-1 text-[12px] shadow-none focus:ring-0 focus-visible:border-ring"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="hotel" className="text-[12px]">
+                          Hotel
+                        </SelectItem>
+                        <SelectItem value="agent" className="text-[12px]">
+                          Agent
+                        </SelectItem>
+                        <SelectItem value="client" className="text-[12px]">
+                          Client
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -616,9 +816,16 @@ function ContactsContent({ widget }: { widget: Widget }) {
                   </div>
                 ) : (
                   <>
-                    <p className="truncate pr-6 text-[13px] font-medium">
-                      {highlightText(p.name, searchQuery)}
-                    </p>
+                    <div className="flex items-start gap-1.5 pr-6">
+                      <p className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                        {highlightText(p.name, searchQuery)}
+                      </p>
+                      <CategoryIcon
+                        className="mt-0.5 size-3 shrink-0"
+                        style={{ color: accentVar(categoryAccent) }}
+                        aria-label={category}
+                      />
+                    </div>
                     {p.company && (
                       <p className="truncate text-[11px] text-muted-foreground">
                         {highlightText(p.company, searchQuery)}
@@ -669,7 +876,8 @@ function ContactsContent({ widget }: { widget: Widget }) {
           </li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }
 
@@ -1024,14 +1232,53 @@ function StatsContent({ widget }: { widget: Widget }) {
   );
 }
 
-export function WidgetContent({ widget }: { widget: Widget }) {
+export function WidgetContent({
+  widget,
+  filtersOpen = false,
+  selectedFilters = [],
+  onToggleFilter = () => {},
+}: {
+  widget: Widget;
+  filtersOpen?: boolean;
+  selectedFilters?: string[];
+  onToggleFilter?: (value: string) => void;
+}) {
   const c = widget.content;
 
-  if (c.kind === "reminders") return <RemindersContent widget={widget} />;
-  if (c.kind === "tasks") return <TasksContent widget={widget} />;
-  if (c.kind === "contacts") return <ContactsContent widget={widget} />;
+  if (c.kind === "reminders")
+    return (
+      <RemindersContent
+        widget={widget}
+        filtersOpen={filtersOpen}
+        selectedFilters={selectedFilters}
+        onToggleFilter={onToggleFilter}
+      />
+    );
+  if (c.kind === "tasks")
+    return (
+      <TasksContent
+        widget={widget}
+        filtersOpen={filtersOpen}
+        selectedFilters={selectedFilters}
+        onToggleFilter={onToggleFilter}
+      />
+    );
+  if (c.kind === "contacts")
+    return (
+      <ContactsContent
+        widget={widget}
+        filtersOpen={filtersOpen}
+        selectedFilters={selectedFilters}
+        onToggleFilter={onToggleFilter}
+      />
+    );
   if (c.kind === "information") return <InformationContent widget={widget} />;
   if (c.kind === "stats") return <StatsContent widget={widget} />;
 
   return <NotesContent widget={widget} />;
+}
+
+/** Widget kinds that expose a filter-chip row and therefore the header toggle. */
+export function widgetSupportsFilters(kind: Widget["content"]["kind"]): boolean {
+  return kind === "reminders" || kind === "tasks" || kind === "contacts";
 }

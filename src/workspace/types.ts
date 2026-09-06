@@ -72,6 +72,8 @@ export interface ContactItem {
   company?: string;
   /** Defaults to "client" when unset. */
   category?: ContactCategory;
+  /** Marked important via the "Favorite" quick action. */
+  favorite?: boolean;
 }
 
 /** How a task repeats. "none" is a plain, one-off task. */

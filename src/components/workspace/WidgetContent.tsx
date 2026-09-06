@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlarmClock,
@@ -9,10 +9,9 @@ import {
   CheckCircle2,
   Clock,
   Flag,
-  Pencil,
   Pin,
   Plus,
-  Repeat,
+  Star,
   Trash2,
   UserRound,
   Users,
@@ -44,9 +43,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { accentVar } from "./AccentControl";
 import { FilterChips, type FilterChipOption } from "./FilterChips";
+import { SwipeableListItem, SwipeRevealProvider } from "./SwipeableListItem";
+
+/** Fixed swipe-action rail widths (px), sized to the number of icons they
+ * hold so the reveal never needs to know about text truncation. */
+const RAIL_W_2 = 64;
+const RAIL_W_3 = 92;
 
 /** Filter chip definitions for each filterable widget kind — colors follow
  * the brief's grouping (warm tones for Reminders/Tasks, cool for Contacts)
@@ -115,32 +121,6 @@ function MiniAction({
     >
       {children}
     </button>
-  );
-}
-
-/**
- * Wrapper that reveals contextual actions on hover, or on tap (touch).
- * Actions are absolutely positioned over the item's trailing edge with a soft
- * fade so compact cards never get their content clipped or pushed around.
- */
-function ItemActions({
-  revealed,
-  children,
-}: {
-  revealed: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "pointer-events-none absolute right-0 top-0 z-10 flex shrink-0 items-start gap-0.5 rounded-lg pl-2 backdrop-blur-[3px] transition-opacity duration-200",
-        revealed
-          ? "pointer-events-auto opacity-100"
-          : "opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-      )}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -310,8 +290,7 @@ function TasksContent({
   onToggleFilter: (value: string) => void;
 }) {
   const { toggleTask, updateTask, deleteTask, searchQuery } = useWorkspace();
-  const [tapped, setTapped] = useState<string | null>(null);
-  const [scheduling, setScheduling] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   if (widget.content.kind !== "tasks") return null;
   const showCompleted = selectedFilters.includes("completed");
@@ -341,124 +320,135 @@ function TasksContent({
         onToggle={onToggleFilter}
         open={filtersOpen}
       />
-      <ul className="space-y-2">
-      {items.map((t) => {
-        const done = taskState(t.status) === "completed";
-        const isConfirming = confirming === t.id;
-        const isScheduling = scheduling === t.id;
-        const recurs = !!t.recurrence && t.recurrence !== "none";
-        const dueToday = !done && isTaskDueToday(t);
-        const urgent = !done && t.priority === "urgent";
-        return (
-          <motion.li
-            key={t.id}
-            layout
-            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
-            className="group relative flex min-h-6 items-start gap-2 pr-1"
-            onClick={() => setTapped((v) => (v === t.id ? null : t.id))}
-          >
-            <button
-              type="button"
-              aria-label={done ? "Reopen task" : "Complete task"}
-              onPointerDown={stop}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleTask(widget.id, t.id);
-              }}
-              className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors"
-              style={
-                done
-                  ? { backgroundColor: accent, borderColor: accent }
-                  : { borderColor: "var(--border)" }
-              }
+      <SwipeRevealProvider>
+        <ul className="space-y-2">
+        {items.map((t) => {
+          const done = taskState(t.status) === "completed";
+          const isConfirming = confirming === t.id;
+          const isExpanded = expanded === t.id;
+          const recurs = !!t.recurrence && t.recurrence !== "none";
+          const dueToday = !done && isTaskDueToday(t);
+          const urgent = !done && t.priority === "urgent";
+          return (
+            <motion.li
+              key={t.id}
+              layout
+              transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             >
-              {done && <Check className="size-2.5 text-white" strokeWidth={3} />}
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start gap-1.5">
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 break-words text-[13px] leading-snug",
-                    done && "text-muted-foreground line-through",
-                  )}
-                >
-                  {highlightText(t.title, searchQuery)}
-                </span>
-                {urgent && (
-                  <AlarmClock
-                    className="mt-0.5 size-3 shrink-0"
-                    style={{ color: accentVar("red") }}
-                    aria-label="Urgent"
-                  />
-                )}
-                {dueToday && (
-                  <span
-                    aria-hidden
-                    className="mt-1 size-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: accentVar("green") }}
-                    title="Due today"
-                  />
-                )}
-              </div>
-              {(recurs || t.time) && !isScheduling && (
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
-                  {recurs ? RECURRENCE_LABELS[t.recurrence!] : ""}
-                  {recurs && t.time ? " · " : ""}
-                  {t.time ?? ""}
-                </p>
-              )}
-              {isScheduling && (
-                <TaskSchedulePanel
-                  task={t}
-                  onChange={(patch) => updateTask(widget.id, t.id, patch)}
-                  onDone={() => setScheduling(null)}
-                />
-              )}
-            </div>
-            <ItemActions revealed={tapped === t.id || isConfirming || isScheduling}>
-              {isConfirming ? (
-                <DeleteAction
-                  label="Delete task"
-                  confirming
-                  onRequest={() => setConfirming(t.id)}
-                  onCancel={() => setConfirming(null)}
-                  onConfirm={() => {
-                    setConfirming(null);
-                    deleteTask(widget.id, t.id);
-                  }}
-                />
-              ) : (
-                <>
-                  <MiniAction
-                    label={t.priority === "urgent" ? "Unmark urgent" : "Mark urgent"}
-                    onClick={() =>
-                      updateTask(widget.id, t.id, {
-                        priority: t.priority === "urgent" ? "normal" : "urgent",
-                      })
+              <SwipeableListItem
+                id={t.id}
+                actionsWidth={RAIL_W_2}
+                actions={
+                  isConfirming ? (
+                    <DeleteAction
+                      label="Delete task"
+                      confirming
+                      onRequest={() => setConfirming(t.id)}
+                      onCancel={() => setConfirming(null)}
+                      onConfirm={() => {
+                        setConfirming(null);
+                        deleteTask(widget.id, t.id);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <MiniAction
+                        label={t.priority === "urgent" ? "Unmark urgent" : "Mark urgent"}
+                        onClick={() =>
+                          updateTask(widget.id, t.id, {
+                            priority: t.priority === "urgent" ? "normal" : "urgent",
+                          })
+                        }
+                      >
+                        <AlarmClock
+                          className="size-3"
+                          style={t.priority === "urgent" ? { color: accentVar("red") } : undefined}
+                        />
+                      </MiniAction>
+                      <DeleteAction
+                        label="Delete task"
+                        confirming={false}
+                        onRequest={() => setConfirming(t.id)}
+                        onCancel={() => setConfirming(null)}
+                        onConfirm={() => deleteTask(widget.id, t.id)}
+                      />
+                    </>
+                  )
+                }
+              >
+                <div className="flex min-h-6 items-start gap-2 py-0.5">
+                  <button
+                    type="button"
+                    aria-label={done ? "Reopen task" : "Complete task"}
+                    onPointerDown={stop}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTask(widget.id, t.id);
+                    }}
+                    className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors"
+                    style={
+                      done
+                        ? { backgroundColor: accent, borderColor: accent }
+                        : { borderColor: "var(--border)" }
                     }
                   >
-                    <AlarmClock
-                      className="size-3"
-                      style={t.priority === "urgent" ? { color: accentVar("red") } : undefined}
-                    />
-                  </MiniAction>
-                  <MiniAction label="Repeat & schedule task" onClick={() => setScheduling(t.id)}>
-                    <Repeat className="size-3" />
-                  </MiniAction>
-                  <DeleteAction
-                    label="Delete task"
-                    confirming={false}
-                    onRequest={() => setConfirming(t.id)}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={() => deleteTask(widget.id, t.id)}
-                  />
-                </>
-              )}
-            </ItemActions>
-          </motion.li>
-        );
-      })}
-      </ul>
+                    {done && <Check className="size-2.5 text-white" strokeWidth={3} />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpanded((v) => (v === t.id ? null : t.id));
+                      }}
+                      className="flex w-full min-w-0 items-start gap-1.5 text-left"
+                    >
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 break-words text-[13px] leading-snug",
+                          done && "text-muted-foreground line-through",
+                        )}
+                      >
+                        {highlightText(t.title, searchQuery)}
+                      </span>
+                      {urgent && (
+                        <AlarmClock
+                          className="mt-0.5 size-3 shrink-0"
+                          style={{ color: accentVar("red") }}
+                          aria-label="Urgent"
+                        />
+                      )}
+                      {dueToday && (
+                        <span
+                          aria-hidden
+                          className="mt-1 size-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: accentVar("green") }}
+                          title="Due today"
+                        />
+                      )}
+                    </button>
+                    {(recurs || t.time) && !isExpanded && (
+                      <p className="truncate font-mono text-[11px] text-muted-foreground">
+                        {recurs ? RECURRENCE_LABELS[t.recurrence!] : ""}
+                        {recurs && t.time ? " · " : ""}
+                        {t.time ?? ""}
+                      </p>
+                    )}
+                    {isExpanded && (
+                      <TaskSchedulePanel
+                        task={t}
+                        onChange={(patch) => updateTask(widget.id, t.id, patch)}
+                        onDone={() => setExpanded(null)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </SwipeableListItem>
+            </motion.li>
+          );
+        })}
+        </ul>
+      </SwipeRevealProvider>
     </>
   );
 }
@@ -477,7 +467,6 @@ function RemindersContent({
   const { updateReminder, setReminderStatus, deleteReminder, searchQuery } = useWorkspace();
   const [editing, setEditing] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
-  const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
 
   // Re-render every 30s so the "active alert" highlight appears the instant
@@ -516,197 +505,209 @@ function RemindersContent({
         onToggle={onToggleFilter}
         open={filtersOpen}
       />
-      <ul className="space-y-2.5">
-      {items.map((r) => {
-        const done = reminderState(r) === "completed";
-        const when = splitWhen(r);
-        const isEditing = editing === r.id;
-        const isRescheduling = rescheduling === r.id;
-        const isConfirming = confirming === r.id;
-        const isAlertActive = !done && isReminderAlertActive(r);
-        return (
-          <motion.li
-            key={r.id}
-            layout
-            transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
-            className="group relative flex min-h-7 gap-2.5 rounded-lg pr-1 pl-1.5 transition-colors"
-            style={{
-              backgroundColor: isAlertActive
-                ? `color-mix(in srgb, ${accent} 12%, transparent)`
-                : "transparent",
-            }}
-            onClick={() => setTapped((v) => (v === r.id ? null : r.id))}
-          >
-            <button
-              type="button"
-              aria-label={done ? "Reopen reminder" : "Complete reminder"}
-              onPointerDown={stop}
-              onClick={(e) => {
-                e.stopPropagation();
-                setReminderStatus(widget.id, r.id, done ? "active" : "completed");
-              }}
-              className="mt-1 flex size-3.5 shrink-0 items-center justify-center rounded-full border transition-colors"
-              style={
-                done
-                  ? { backgroundColor: accent, borderColor: accent }
-                  : { borderColor: accent, backgroundColor: "transparent" }
-              }
+      <SwipeRevealProvider>
+        <ul className="space-y-2.5">
+        {items.map((r) => {
+          const done = reminderState(r) === "completed";
+          const when = splitWhen(r);
+          const isEditing = editing === r.id;
+          const isRescheduling = rescheduling === r.id;
+          const isConfirming = confirming === r.id;
+          const isAlertActive = !done && isReminderAlertActive(r);
+          return (
+            <motion.li
+              key={r.id}
+              layout
+              transition={{ type: "spring", stiffness: 500, damping: 40, mass: 0.6 }}
             >
-              {done && <Check className="size-2 text-white" strokeWidth={3} />}
-            </button>
-
-            <div className="min-w-0 flex-1 py-0.5">
-              {isEditing ? (
-                <div className="space-y-1.5" onClick={stop} onPointerDown={stop}>
-                  <input
-                    value={r.title}
-                    onChange={(e) => updateReminder(widget.id, r.id, { title: e.target.value })}
-                    className="w-full rounded-lg bg-surface-2 px-2 py-1 text-[13px] outline-none focus:ring-1 focus:ring-ring"
-                  />
+              <SwipeableListItem
+                id={r.id}
+                actionsWidth={RAIL_W_2}
+                className="rounded-lg"
+                style={{
+                  backgroundColor: isAlertActive
+                    ? `color-mix(in srgb, ${accent} 12%, transparent)`
+                    : "transparent",
+                }}
+                actions={
+                  isConfirming ? (
+                    <DeleteAction
+                      label="Delete reminder"
+                      confirming
+                      onRequest={() => setConfirming(r.id)}
+                      onCancel={() => setConfirming(null)}
+                      onConfirm={() => {
+                        setConfirming(null);
+                        deleteReminder(widget.id, r.id);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <MiniAction
+                        label={r.flagged ? "Unflag reminder" : "Flag reminder"}
+                        onClick={() => updateReminder(widget.id, r.id, { flagged: !r.flagged })}
+                      >
+                        <Flag
+                          className={cn("size-3", r.flagged && "fill-current")}
+                          style={r.flagged ? { color: accentVar("red") } : undefined}
+                        />
+                      </MiniAction>
+                      <DeleteAction
+                        label="Delete reminder"
+                        confirming={false}
+                        onRequest={() => setConfirming(r.id)}
+                        onCancel={() => setConfirming(null)}
+                        onConfirm={() => deleteReminder(widget.id, r.id)}
+                      />
+                    </>
+                  )
+                }
+              >
+                <div className="flex min-h-7 gap-2.5 pl-1.5 pr-1 py-0.5">
                   <button
                     type="button"
+                    aria-label={done ? "Reopen reminder" : "Complete reminder"}
+                    onPointerDown={stop}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditing(null);
+                      setReminderStatus(widget.id, r.id, done ? "active" : "completed");
                     }}
-                    className="label-xs hover:text-foreground"
-                  >
-                    Done
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-start gap-1.5">
-                  <p
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-[13px] leading-snug",
-                      done && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {highlightText(r.title, searchQuery)}
-                  </p>
-                  {r.flagged && (
-                    <Flag
-                      className="mt-0.5 size-3 shrink-0 fill-current"
-                      style={{ color: accentVar("red") }}
-                      aria-label="Flagged"
-                    />
-                  )}
-                  {isAlertActive && (
-                    <span
-                      aria-hidden
-                      className="mt-1 size-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: accent }}
-                      title="Alert active"
-                    />
-                  )}
-                </div>
-              )}
-
-              {isRescheduling ? (
-                <div className="mt-1.5 space-y-1.5" onClick={stop} onPointerDown={stop}>
-                  <div className="flex flex-col gap-1.5">
-                    <DateField
-                      size="sm"
-                      value={when.date}
-                      onChange={(iso) => updateReminder(widget.id, r.id, { date: iso })}
-                      placeholder="Pick a date"
-                      aria-label="Reminder date"
-                    />
-                    <TimeField
-                      value={when.time}
-                      onChange={(t) => updateReminder(widget.id, r.id, { time: t })}
-                    />
-                  </div>
-
-                  <Select
-                    value={String(r.notifyMinutesBefore ?? DEFAULT_NOTIFY_MINUTES)}
-                    onValueChange={(v) =>
-                      updateReminder(widget.id, r.id, { notifyMinutesBefore: Number(v) })
+                    className="mt-1 flex size-3.5 shrink-0 items-center justify-center rounded-full border transition-colors"
+                    style={
+                      done
+                        ? { backgroundColor: accent, borderColor: accent }
+                        : { borderColor: accent, backgroundColor: "transparent" }
                     }
                   >
-                    <SelectTrigger
-                      aria-label="Notify me"
-                      className="h-auto w-full rounded-xl border-border bg-surface px-2 py-1 text-[11px] shadow-none focus:ring-0 focus-visible:border-ring"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {NOTIFY_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={String(opt.value)} className="text-[12px]">
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRescheduling(null);
-                    }}
-                    className="label-xs hover:text-foreground"
-                  >
-                    Done
+                    {done && <Check className="size-2 text-white" strokeWidth={3} />}
                   </button>
-                </div>
-              ) : (
-                formatReminderWhen(when) && (
-                  <p
-                    className="truncate font-mono text-[11px]"
-                    style={{ color: `color-mix(in srgb, ${accent} 70%, var(--muted-foreground))` }}
-                  >
-                    {formatReminderWhen(when)}
-                  </p>
-                )
-              )}
-            </div>
 
-            <ItemActions
-              revealed={tapped === r.id || isEditing || isRescheduling || isConfirming}
-            >
-              {isConfirming ? (
-                <DeleteAction
-                  label="Delete reminder"
-                  confirming
-                  onRequest={() => setConfirming(r.id)}
-                  onCancel={() => setConfirming(null)}
-                  onConfirm={() => {
-                    setConfirming(null);
-                    deleteReminder(widget.id, r.id);
-                  }}
-                />
-              ) : (
-                <>
-                  <MiniAction
-                    label={r.flagged ? "Unflag reminder" : "Flag reminder"}
-                    onClick={() => updateReminder(widget.id, r.id, { flagged: !r.flagged })}
-                  >
-                    <Flag
-                      className={cn("size-3", r.flagged && "fill-current")}
-                      style={r.flagged ? { color: accentVar("red") } : undefined}
-                    />
-                  </MiniAction>
-                  <MiniAction label="Edit reminder" onClick={() => setEditing(r.id)}>
-                    <Pencil className="size-3" />
-                  </MiniAction>
-                  <MiniAction label="Reschedule reminder" onClick={() => setRescheduling(r.id)}>
-                    <Clock className="size-3" />
-                  </MiniAction>
-                  <DeleteAction
-                    label="Delete reminder"
-                    confirming={false}
-                    onRequest={() => setConfirming(r.id)}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={() => deleteReminder(widget.id, r.id)}
-                  />
-                </>
-              )}
-            </ItemActions>
-          </motion.li>
-        );
-      })}
-      </ul>
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <div className="space-y-1.5" onClick={stop} onPointerDown={stop}>
+                        <input
+                          autoFocus
+                          value={r.title}
+                          onChange={(e) => updateReminder(widget.id, r.id, { title: e.target.value })}
+                          className="w-full rounded-lg bg-surface-2 px-2 py-1 text-[13px] outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(null);
+                          }}
+                          className="label-xs hover:text-foreground"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(r.id);
+                        }}
+                        className="flex w-full min-w-0 items-start gap-1.5 text-left"
+                      >
+                        <p
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                            done && "text-muted-foreground line-through",
+                          )}
+                        >
+                          {highlightText(r.title, searchQuery)}
+                        </p>
+                        {r.flagged && (
+                          <Flag
+                            className="mt-0.5 size-3 shrink-0 fill-current"
+                            style={{ color: accentVar("red") }}
+                            aria-label="Flagged"
+                          />
+                        )}
+                        {isAlertActive && (
+                          <span
+                            aria-hidden
+                            className="mt-1 size-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: accent }}
+                            title="Alert active"
+                          />
+                        )}
+                      </button>
+                    )}
+
+                    {isRescheduling ? (
+                      <div className="mt-1.5 space-y-1.5" onClick={stop} onPointerDown={stop}>
+                        <div className="flex flex-col gap-1.5">
+                          <DateField
+                            size="sm"
+                            value={when.date}
+                            onChange={(iso) => updateReminder(widget.id, r.id, { date: iso })}
+                            placeholder="Pick a date"
+                            aria-label="Reminder date"
+                          />
+                          <TimeField
+                            value={when.time}
+                            onChange={(t) => updateReminder(widget.id, r.id, { time: t })}
+                          />
+                        </div>
+
+                        <Select
+                          value={String(r.notifyMinutesBefore ?? DEFAULT_NOTIFY_MINUTES)}
+                          onValueChange={(v) =>
+                            updateReminder(widget.id, r.id, { notifyMinutesBefore: Number(v) })
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label="Notify me"
+                            className="h-auto w-full rounded-xl border-border bg-surface px-2 py-1 text-[11px] shadow-none focus:ring-0 focus-visible:border-ring"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            {NOTIFY_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={String(opt.value)} className="text-[12px]">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRescheduling(null);
+                          }}
+                          className="label-xs hover:text-foreground"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    ) : (
+                      formatReminderWhen(when) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRescheduling(r.id);
+                          }}
+                          className="block truncate font-mono text-[11px]"
+                          style={{ color: `color-mix(in srgb, ${accent} 70%, var(--muted-foreground))` }}
+                        >
+                          {formatReminderWhen(when)}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              </SwipeableListItem>
+            </motion.li>
+          );
+        })}
+        </ul>
+      </SwipeRevealProvider>
     </>
   );
 }
@@ -723,13 +724,62 @@ function ContactsContent({
   onToggleFilter: (value: string) => void;
 }) {
   const { updateContact, deleteContact, searchQuery } = useWorkspace();
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<{
+    id: string;
+    field: "name" | "company" | "email" | "phone";
+  } | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
-  const [tapped, setTapped] = useState<string | null>(null);
   if (widget.content.kind !== "contacts") return null;
 
-  const field =
-    "w-full rounded-lg bg-surface px-2 py-1 text-[12px] outline-none focus:ring-1 focus:ring-ring";
+  const fieldInputClass =
+    "w-full rounded-md bg-surface px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring";
+
+  /** Renders one contact field: a click-to-edit text button, or an inline
+   * input while that specific field (and only that field) is being edited. */
+  function EditableField({
+    p,
+    field,
+    placeholder,
+    className,
+  }: {
+    p: ContactItem;
+    field: "name" | "company" | "email" | "phone";
+    placeholder: string;
+    className?: string;
+  }) {
+    const isEditing = editingField?.id === p.id && editingField.field === field;
+    if (isEditing)
+      return (
+        <input
+          autoFocus
+          value={p[field] ?? ""}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          onClick={stop}
+          onPointerDown={stop}
+          onChange={(e) => updateContact(widget.id, p.id, { [field]: e.target.value })}
+          onBlur={() => setEditingField(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setEditingField(null);
+          }}
+          className={cn(fieldInputClass, className)}
+        />
+      );
+    const value = p[field];
+    if (!value && field !== "name") return null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditingField({ id: p.id, field });
+        }}
+        className={cn("min-w-0 max-w-full truncate text-left", className)}
+      >
+        {highlightText(value ?? "", searchQuery)}
+      </button>
+    );
+  }
 
   const visible = widget.content.items
     .filter((p) =>
@@ -747,140 +797,138 @@ function ContactsContent({
         onToggle={onToggleFilter}
         open={filtersOpen}
       />
-      <ul className="grid grid-cols-1 gap-2.5 @[22rem]:grid-cols-2">
-      {visible.map((p) => {
-        const isEditing = editing === p.id;
-        const isConfirming = confirming === p.id;
-        const category = contactFilterValue(p);
-        const CategoryIcon =
-          category === "hotel" ? Building2 : category === "agent" ? Users : UserRound;
-        const categoryAccent =
-          category === "hotel" ? "blue" : category === "agent" ? "purple" : "neutral";
-        return (
-          <li
-            key={p.id}
-            className="group relative min-w-0 rounded-xl bg-surface-2 px-3 py-2"
-            onClick={() => setTapped((v) => (v === p.id ? null : p.id))}
-          >
-            <div className="flex min-w-0 items-start gap-2">
-              <div className="min-w-0 flex-1">
-                {isEditing ? (
-                  <div className="space-y-1" onClick={stop} onPointerDown={stop}>
-                    {(
-                      [
-                        ["name", "Name"],
-                        ["company", "Company"],
-                        ["email", "Email"],
-                        ["phone", "Phone"],
-                      ] as const
-                    ).map(([key, label]) => (
-                      <input
-                        key={key}
-                        value={p[key] ?? ""}
-                        placeholder={label}
-                        aria-label={label}
-                        onChange={(e) => updateContact(widget.id, p.id, { [key]: e.target.value })}
-                        className={field}
-                      />
-                    ))}
-                    <Select
-                      value={category}
-                      onValueChange={(v) =>
-                        updateContact(widget.id, p.id, { category: v as ContactCategory })
-                      }
-                    >
-                      <SelectTrigger
-                        aria-label="Category"
-                        className="h-auto w-full rounded-lg border-border bg-surface px-2 py-1 text-[12px] shadow-none focus:ring-0 focus-visible:border-ring"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="hotel" className="text-[12px]">
-                          Hotel
-                        </SelectItem>
-                        <SelectItem value="agent" className="text-[12px]">
-                          Agent
-                        </SelectItem>
-                        <SelectItem value="client" className="text-[12px]">
-                          Client
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(null);
-                      }}
-                      className="label-xs hover:text-foreground"
-                    >
-                      Done
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-start gap-1.5 pr-6">
-                      <p className="min-w-0 flex-1 truncate text-[13px] font-medium">
-                        {highlightText(p.name, searchQuery)}
-                      </p>
-                      <CategoryIcon
-                        className="mt-0.5 size-3 shrink-0"
-                        style={{ color: accentVar(categoryAccent) }}
-                        aria-label={category}
-                      />
-                    </div>
-                    {p.company && (
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {highlightText(p.company, searchQuery)}
-                      </p>
-                    )}
-                    {p.email && (
-                      <p className="truncate text-[11px] text-entity-email">
-                        {highlightText(p.email, searchQuery)}
-                      </p>
-                    )}
-                    {p.phone && (
-                      <p className="truncate font-mono text-[11px] text-entity-phone">
-                        {highlightText(p.phone, searchQuery)}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <ItemActions revealed={tapped === p.id || isEditing || isConfirming}>
-                {isConfirming ? (
-                  <DeleteAction
-                    label="Delete contact"
-                    confirming
-                    onRequest={() => setConfirming(p.id)}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={() => {
-                      setConfirming(null);
-                      deleteContact(widget.id, p.id);
-                    }}
-                  />
-                ) : (
-                  <>
-                    <MiniAction label="Edit contact" onClick={() => setEditing(p.id)}>
-                      <Pencil className="size-3" />
-                    </MiniAction>
+      <SwipeRevealProvider>
+        <ul className="grid grid-cols-1 gap-2.5 @[22rem]:grid-cols-2">
+        {visible.map((p) => {
+          const isConfirming = confirming === p.id;
+          const category = contactFilterValue(p);
+          const CategoryIcon =
+            category === "hotel" ? Building2 : category === "agent" ? Users : UserRound;
+          const categoryAccent =
+            category === "hotel" ? "blue" : category === "agent" ? "purple" : "neutral";
+          return (
+            <li key={p.id} className="min-w-0">
+              <SwipeableListItem
+                id={p.id}
+                actionsWidth={RAIL_W_2}
+                actions={
+                  isConfirming ? (
                     <DeleteAction
                       label="Delete contact"
-                      confirming={false}
+                      confirming
                       onRequest={() => setConfirming(p.id)}
                       onCancel={() => setConfirming(null)}
-                      onConfirm={() => deleteContact(widget.id, p.id)}
+                      onConfirm={() => {
+                        setConfirming(null);
+                        deleteContact(widget.id, p.id);
+                      }}
                     />
-                  </>
-                )}
-              </ItemActions>
-            </div>
-          </li>
-        );
-      })}
-      </ul>
+                  ) : (
+                    <>
+                      <MiniAction
+                        label={p.favorite ? "Unfavorite contact" : "Favorite contact"}
+                        onClick={() => updateContact(widget.id, p.id, { favorite: !p.favorite })}
+                      >
+                        <Star
+                          className={cn("size-3", p.favorite && "fill-current")}
+                          style={p.favorite ? { color: accentVar("yellow") } : undefined}
+                        />
+                      </MiniAction>
+                      <DeleteAction
+                        label="Delete contact"
+                        confirming={false}
+                        onRequest={() => setConfirming(p.id)}
+                        onCancel={() => setConfirming(null)}
+                        onConfirm={() => deleteContact(widget.id, p.id)}
+                      />
+                    </>
+                  )
+                }
+              >
+                <div className="min-w-0 bg-surface-2 px-3 py-2">
+                  <div className="flex items-start gap-1.5 pr-1">
+                    {p.favorite && (
+                      <Star
+                        className="mt-0.5 size-3 shrink-0 fill-current"
+                        style={{ color: accentVar("yellow") }}
+                        aria-label="Favorite"
+                      />
+                    )}
+                    <EditableField
+                      p={p}
+                      field="name"
+                      placeholder="Name"
+                      className="flex-1 text-[13px] font-medium"
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Category: ${category}`}
+                          onClick={stop}
+                          onPointerDown={stop}
+                          className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-secondary"
+                        >
+                          <CategoryIcon
+                            className="size-3"
+                            style={{ color: accentVar(categoryAccent) }}
+                          />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        className="w-36 rounded-xl p-1"
+                        onClick={stop}
+                        onPointerDown={stop}
+                      >
+                        {(
+                          [
+                            ["hotel", "Hotel", Building2, "blue"],
+                            ["agent", "Agent", Users, "purple"],
+                            ["client", "Client", UserRound, "neutral"],
+                          ] as const
+                        ).map(([value, label, Icon, catAccent]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => updateContact(widget.id, p.id, { category: value as ContactCategory })}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] transition-colors hover:bg-secondary",
+                              category === value && "bg-secondary/60",
+                            )}
+                          >
+                            <Icon className="size-3.5" style={{ color: accentVar(catAccent) }} />
+                            {label}
+                          </button>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <EditableField
+                    p={p}
+                    field="company"
+                    placeholder="Company"
+                    className="text-[11px] text-muted-foreground"
+                  />
+                  <EditableField
+                    p={p}
+                    field="email"
+                    placeholder="Email"
+                    className="text-[11px] text-entity-email"
+                  />
+                  <EditableField
+                    p={p}
+                    field="phone"
+                    placeholder="Phone"
+                    className="font-mono text-[11px] text-entity-phone"
+                  />
+                </div>
+              </SwipeableListItem>
+            </li>
+          );
+        })}
+        </ul>
+      </SwipeRevealProvider>
     </>
   );
 }
@@ -913,9 +961,7 @@ function StickyNoteEditor({ widgetId, note }: { widgetId: string; note: NoteRefI
 }
 
 function NotesContent({ widget }: { widget: Widget }) {
-  const { convertNoteToSticky, deleteNote, toggleNotePin, editNoteInEditor, searchQuery } =
-    useWorkspace();
-  const [tapped, setTapped] = useState<string | null>(null);
+  const { convertNoteToSticky, deleteNote, toggleNotePin, searchQuery } = useWorkspace();
   const [confirming, setConfirming] = useState<string | null>(null);
   if (widget.content.kind !== "notes") return null;
 
@@ -943,76 +989,77 @@ function NotesContent({ widget }: { widget: Widget }) {
     );
 
   return (
-    <ul className="space-y-2">
-      {ordered.map((n) => {
-        const isConfirming = confirming === n.id;
-        return (
-          <li
-            key={n.id}
-            className={cn(
-              "group relative flex min-w-0 items-start gap-2 rounded-xl bg-surface-2 px-3 py-2",
-              n.pinned && "ring-1 ring-border",
-            )}
-            onClick={() => setTapped((v) => (v === n.id ? null : n.id))}
-          >
-            <span
-              className="notes-rich min-w-0 flex-1 break-words text-[13px] leading-snug"
-              dangerouslySetInnerHTML={{
-                __html: highlightHtml(sanitizeHtml(n.text), searchQuery),
-              }}
-            />
-            {n.pinned && (
-              <Pin
-                className="pointer-events-none absolute right-2 top-2 size-3 text-muted-foreground/60"
-                fill="currentColor"
-              />
-            )}
-            <ItemActions revealed={tapped === n.id || isConfirming}>
-              {isConfirming ? (
-                <DeleteAction
-                  label="Delete note"
-                  confirming
-                  onRequest={() => setConfirming(n.id)}
-                  onCancel={() => setConfirming(null)}
-                  onConfirm={() => {
-                    setConfirming(null);
-                    deleteNote(widget.id, n.id);
-                  }}
-                />
-              ) : (
-                <>
-                  <MiniAction
-                    label={n.pinned ? "Unpin note" : "Pin note"}
-                    onClick={() => toggleNotePin(widget.id, n.id)}
-                  >
-                    <Pin className="size-3" />
-                  </MiniAction>
-                  <MiniAction
-                    label="Edit note"
-                    onClick={() => editNoteInEditor(widget.id, n.id)}
-                  >
-                    <Pencil className="size-3" />
-                  </MiniAction>
-                  <MiniAction
-                    label="Convert to sticky note"
-                    onClick={() => convertNoteToSticky(widget.id, n.id)}
-                  >
-                    <ArrowUpRight className="size-3" />
-                  </MiniAction>
-                  <DeleteAction
-                    label="Delete note"
-                    confirming={false}
-                    onRequest={() => setConfirming(n.id)}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={() => deleteNote(widget.id, n.id)}
+    <SwipeRevealProvider>
+      <ul className="space-y-2">
+        {ordered.map((n) => {
+          const isConfirming = confirming === n.id;
+          return (
+            <li key={n.id} className="min-w-0">
+              <SwipeableListItem
+                id={n.id}
+                actionsWidth={RAIL_W_3}
+                actions={
+                  isConfirming ? (
+                    <DeleteAction
+                      label="Delete note"
+                      confirming
+                      onRequest={() => setConfirming(n.id)}
+                      onCancel={() => setConfirming(null)}
+                      onConfirm={() => {
+                        setConfirming(null);
+                        deleteNote(widget.id, n.id);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <MiniAction
+                        label={n.pinned ? "Unpin note" : "Pin note"}
+                        onClick={() => toggleNotePin(widget.id, n.id)}
+                      >
+                        <Pin className={cn("size-3", n.pinned && "fill-current")} />
+                      </MiniAction>
+                      <MiniAction
+                        label="Convert to sticky note"
+                        onClick={() => convertNoteToSticky(widget.id, n.id)}
+                      >
+                        <ArrowUpRight className="size-3" />
+                      </MiniAction>
+                      <DeleteAction
+                        label="Delete note"
+                        confirming={false}
+                        onRequest={() => setConfirming(n.id)}
+                        onCancel={() => setConfirming(null)}
+                        onConfirm={() => deleteNote(widget.id, n.id)}
+                      />
+                    </>
+                  )
+                }
+              >
+                <div
+                  className={cn(
+                    "relative flex min-w-0 items-start gap-2 bg-surface-2 px-3 py-2",
+                    n.pinned && "ring-1 ring-border",
+                  )}
+                >
+                  <span
+                    className="notes-rich min-w-0 flex-1 break-words text-[13px] leading-snug"
+                    dangerouslySetInnerHTML={{
+                      __html: highlightHtml(sanitizeHtml(n.text), searchQuery),
+                    }}
                   />
-                </>
-              )}
-            </ItemActions>
-          </li>
-        );
-      })}
-    </ul>
+                  {n.pinned && (
+                    <Pin
+                      className="pointer-events-none absolute right-2 top-2 size-3 text-muted-foreground/60"
+                      fill="currentColor"
+                    />
+                  )}
+                </div>
+              </SwipeableListItem>
+            </li>
+          );
+        })}
+      </ul>
+    </SwipeRevealProvider>
   );
 }
 
@@ -1027,14 +1074,11 @@ function InformationContent({ widget }: { widget: Widget }) {
   const {
     updateInformation,
     deleteInformation,
-    toggleInformationPin,
     convertInformationToSticky,
     addInformation,
     searchQuery,
   } = useWorkspace();
-  const [tapped, setTapped] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
-  const valueRefs = useRef<Record<string, HTMLInputElement | null>>({});
   if (widget.content.kind !== "information") return null;
 
   const ordered = [...widget.content.items]
@@ -1048,88 +1092,84 @@ function InformationContent({ widget }: { widget: Widget }) {
           {searchQuery.trim() ? "No details match your search." : "No details yet."}
         </p>
       ) : (
-        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl bg-surface-2">
-          {ordered.map((i) => {
-            const isConfirming = confirming === i.id;
-            return (
-              <li
-                key={i.id}
-                className={cn(
-                  "group relative flex items-center gap-3 px-3 py-1.5",
-                  i.pinned && "bg-surface",
-                )}
-                onClick={() => setTapped((v) => (v === i.id ? null : i.id))}
-              >
-                <input
-                  value={i.label}
-                  aria-label="Label"
-                  placeholder="LABEL"
-                  onClick={stop}
-                  onPointerDown={stop}
-                  onChange={(e) => updateInformation(widget.id, i.id, { label: e.target.value })}
-                  className="label-xs w-24 shrink-0 truncate bg-transparent outline-none focus:ring-1 focus:ring-ring rounded-md px-1 -mx-1"
-                />
-                <input
-                  ref={(el) => {
-                    valueRefs.current[i.id] = el;
-                  }}
-                  value={i.value}
-                  aria-label="Value"
-                  placeholder="Value"
-                  onClick={stop}
-                  onPointerDown={stop}
-                  onChange={(e) => updateInformation(widget.id, i.id, { value: e.target.value })}
-                  className="min-w-0 flex-1 truncate rounded-md bg-transparent px-1 -mx-1 text-right font-mono text-[12.5px] text-foreground outline-none focus:ring-1 focus:ring-ring"
-                />
-                {i.pinned && !isConfirming && (
-                  <Pin className="pointer-events-none size-3 shrink-0 text-muted-foreground/60" fill="currentColor" />
-                )}
-                <ItemActions revealed={tapped === i.id || isConfirming}>
-                  {isConfirming ? (
-                    <DeleteAction
-                      label="Delete detail"
-                      confirming
-                      onRequest={() => setConfirming(i.id)}
-                      onCancel={() => setConfirming(null)}
-                      onConfirm={() => {
-                        setConfirming(null);
-                        deleteInformation(widget.id, i.id);
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <MiniAction
-                        label={i.pinned ? "Unpin detail" : "Pin detail"}
-                        onClick={() => toggleInformationPin(widget.id, i.id)}
-                      >
-                        <Pin className="size-3" />
-                      </MiniAction>
-                      <MiniAction
-                        label="Edit detail"
-                        onClick={() => valueRefs.current[i.id]?.focus()}
-                      >
-                        <Pencil className="size-3" />
-                      </MiniAction>
-                      <MiniAction
-                        label="Convert to sticky note"
-                        onClick={() => convertInformationToSticky(widget.id, i.id)}
-                      >
-                        <ArrowUpRight className="size-3" />
-                      </MiniAction>
-                      <DeleteAction
-                        label="Delete detail"
-                        confirming={false}
-                        onRequest={() => setConfirming(i.id)}
-                        onCancel={() => setConfirming(null)}
-                        onConfirm={() => deleteInformation(widget.id, i.id)}
+        <SwipeRevealProvider>
+          <ul className="overflow-hidden rounded-xl bg-surface-2">
+            {ordered.map((i) => {
+              const isConfirming = confirming === i.id;
+              return (
+                <li key={i.id} className="border-b border-border/60 last:border-b-0">
+                  <SwipeableListItem
+                    id={i.id}
+                    actionsWidth={RAIL_W_2}
+                    className="rounded-none"
+                    actions={
+                      isConfirming ? (
+                        <DeleteAction
+                          label="Delete detail"
+                          confirming
+                          onRequest={() => setConfirming(i.id)}
+                          onCancel={() => setConfirming(null)}
+                          onConfirm={() => {
+                            setConfirming(null);
+                            deleteInformation(widget.id, i.id);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <MiniAction
+                            label="Convert to sticky note"
+                            onClick={() => convertInformationToSticky(widget.id, i.id)}
+                          >
+                            <ArrowUpRight className="size-3" />
+                          </MiniAction>
+                          <DeleteAction
+                            label="Delete detail"
+                            confirming={false}
+                            onRequest={() => setConfirming(i.id)}
+                            onCancel={() => setConfirming(null)}
+                            onConfirm={() => deleteInformation(widget.id, i.id)}
+                          />
+                        </>
+                      )
+                    }
+                  >
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-1.5",
+                        i.pinned && "bg-surface",
+                      )}
+                    >
+                      <input
+                        value={i.label}
+                        aria-label="Label"
+                        placeholder="LABEL"
+                        onClick={stop}
+                        onPointerDown={stop}
+                        onChange={(e) => updateInformation(widget.id, i.id, { label: e.target.value })}
+                        className="label-xs w-24 shrink-0 truncate bg-transparent outline-none focus:ring-1 focus:ring-ring rounded-md px-1 -mx-1"
                       />
-                    </>
-                  )}
-                </ItemActions>
-              </li>
-            );
-          })}
-        </ul>
+                      <input
+                        value={i.value}
+                        aria-label="Value"
+                        placeholder="Value"
+                        onClick={stop}
+                        onPointerDown={stop}
+                        onChange={(e) => updateInformation(widget.id, i.id, { value: e.target.value })}
+                        className="min-w-0 flex-1 truncate rounded-md bg-transparent px-1 -mx-1 text-right font-mono text-[12.5px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      {i.pinned && (
+                        <Pin
+                          className="pointer-events-none size-3 shrink-0 text-muted-foreground/60"
+                          fill="currentColor"
+                        />
+                      )}
+                    </div>
+                  </SwipeableListItem>
+                </li>
+              );
+            })}
+          </ul>
+        </SwipeRevealProvider>
       )}
       <button
         type="button"
